@@ -9,11 +9,23 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        primary: {
+          DEFAULT: "#1C3A2F",
+          foreground: "#FAF8F4",
+        },
+        background: "#FAF8F4",
+        foreground: "#111827",
+        accent: {
+          DEFAULT: "#C4954A",
+          foreground: "#FFFFFF",
+        },
+      },
+      fontFamily: {
+        sans: ["var(--font-dm-sans)"],
+        serif: ["var(--font-cormorant-garamond)"],
       },
     },
   },
-  plugins: [],
+  plugins: [require('@tailwindcss/forms')],
 };
 export default config;
