@@ -20,8 +20,12 @@ export default function ForgotPassword({
     const email = formData.get("email") as string;
     const supabase = createClient();
 
+    // Use the /auth/confirm route (OTP / token_hash flow) instead of /auth/callback (PKCE).
+    // PKCE for password reset is fragile — it requires the email link to be
+    // clicked in the same browser session that initiated the reset. OTP works
+    // regardless of browser, tab, or device.
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${origin}/auth/callback?next=/dashboard/profile/reset-password`,
+      redirectTo: `${origin}/auth/confirm?next=/dashboard/profile/reset-password`,
     });
 
     if (error) {
