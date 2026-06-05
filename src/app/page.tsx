@@ -6,12 +6,26 @@ import {
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams?: { message?: string };
+}) {
   const supabase = createClient();
   const { data: { session } } = await supabase.auth.getSession();
+  const message = searchParams?.message ?? null;
 
   return (
     <main className="min-h-screen bg-background flex flex-col font-sans">
+      {/* Optional banner — shown when redirected from /go/[slug] for a
+          gift that has no destination URL set yet. Auto-dismisses on the
+          next page navigation since it's read from the query param. */}
+      {message && (
+        <div className="bg-accent/10 border-b border-accent/30 px-6 py-3 text-center text-sm text-primary">
+          {message}
+        </div>
+      )}
+
       {/* Navigation */}
       <nav className="absolute top-0 w-full z-50 px-6 py-4 flex items-center justify-between">
         <div className="font-serif text-2xl font-bold tracking-tight text-primary">

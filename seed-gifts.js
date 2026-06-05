@@ -42,7 +42,7 @@ const gifts = [
     tags: ["fitness & wellness", "home decor"],
     occasions: ["birthday", "anniversary", "mother's day", "valentine's day"],
     recipients: ["her", "parent", "friend", "sibling", "teacher/mentor"],
-    affiliate_url: "https://kindlybox.com/go/botanical-spa-set", affiliate_network: "amazon"
+    affiliate_url: "/go/botanical-spa-set", slug: "botanical-spa-set", destination_url: null, affiliate_network: "amazon"
   },
   {
     name: "Acupressure Mat and Pillow Set",
@@ -52,7 +52,7 @@ const gifts = [
     tags: ["fitness & wellness"],
     occasions: ["birthday", "father's day", "mother's day"],
     recipients: ["him", "her", "parent", "friend", "sibling"],
-    affiliate_url: "https://kindlybox.com/go/acupressure-mat-set", affiliate_network: "amazon"
+    affiliate_url: "/go/acupressure-mat-set", slug: "acupressure-mat-set", destination_url: null, affiliate_network: "amazon"
   },
   {
     name: "Essential Oil Diffuser",
@@ -62,7 +62,7 @@ const gifts = [
     tags: ["fitness & wellness", "home decor"],
     occasions: ["birthday", "house warming", "mother's day"],
     recipients: ["her", "parent", "friend", "sibling", "co-worker", "teacher/mentor"],
-    affiliate_url: "https://kindlybox.com/go/essential-oil-diffuser", affiliate_network: "amazon"
+    affiliate_url: "/go/essential-oil-diffuser", slug: "essential-oil-diffuser", destination_url: null, affiliate_network: "amazon"
   },
 
   // ── Books & learning (4-6) ────────────────────────────────────────────────
@@ -74,7 +74,7 @@ const gifts = [
     tags: ["books & reading", "art & crafts"],
     occasions: ["birthday", "graduation", "promotion/retirement"],
     recipients: ["him", "her", "friend", "co-worker", "teacher/mentor", "sibling"],
-    affiliate_url: "https://kindlybox.com/go/leather-journal", affiliate_network: "amazon"
+    affiliate_url: "/go/leather-journal", slug: "leather-journal", destination_url: null, affiliate_network: "amazon"
   },
   {
     name: "MasterClass Annual Subscription",
@@ -84,7 +84,7 @@ const gifts = [
     tags: ["books & reading", "movies & tv"],
     occasions: ["birthday", "graduation", "promotion/retirement", "father's day", "mother's day"],
     recipients: ["him", "her", "parent", "friend", "co-worker"],
-    affiliate_url: "https://kindlybox.com/go/masterclass-subscription", affiliate_network: "awin"
+    affiliate_url: "/go/masterclass-subscription", slug: "masterclass-subscription", destination_url: null, affiliate_network: "awin"
   },
   {
     name: "Kindle Paperwhite E-Reader",
@@ -94,7 +94,7 @@ const gifts = [
     tags: ["books & reading", "tech & gadgets"],
     occasions: ["birthday", "graduation", "mother's day", "father's day"],
     recipients: ["him", "her", "parent", "friend", "sibling"],
-    affiliate_url: "https://kindlybox.com/go/kindle-paperwhite", affiliate_network: "amazon"
+    affiliate_url: "/go/kindle-paperwhite", slug: "kindle-paperwhite", destination_url: "https://www.amazon.com/dp/B0CFPJYX9X", affiliate_network: "amazon"
   },
 
   // ── Food & cooking (7-10) ─────────────────────────────────────────────────
@@ -106,7 +106,7 @@ const gifts = [
     tags: ["home & kitchen"],
     occasions: ["birthday", "father's day", "mother's day", "house warming", "promotion/retirement"],
     recipients: ["him", "her", "parent", "friend", "co-worker", "teacher/mentor"],
-    affiliate_url: "https://kindlybox.com/go/coffee-subscription", affiliate_network: "awin"
+    affiliate_url: "/go/coffee-subscription", slug: "coffee-subscription", destination_url: null, affiliate_network: "awin"
   },
   {
     name: "Gourmet Pasta Making Kit",
@@ -116,7 +116,7 @@ const gifts = [
     tags: ["home & kitchen"],
     occasions: ["wedding", "house warming", "anniversary", "valentine's day"],
     recipients: ["her", "him", "parent", "friend"],
-    affiliate_url: "https://kindlybox.com/go/pasta-making-kit", affiliate_network: "amazon"
+    affiliate_url: "/go/pasta-making-kit", slug: "pasta-making-kit", destination_url: null, affiliate_network: "amazon"
   },
   {
     name: "Japanese Santoku Chef Knife",
@@ -126,7 +126,7 @@ const gifts = [
     tags: ["home & kitchen"],
     occasions: ["wedding", "house warming", "father's day", "mother's day"],
     recipients: ["him", "her", "parent", "friend"],
-    affiliate_url: "https://kindlybox.com/go/santoku-knife", affiliate_network: "amazon"
+    affiliate_url: "/go/santoku-knife", slug: "santoku-knife", destination_url: null, affiliate_network: "amazon"
   },
   {
     name: "Luxury Chocolate Tasting Box",
@@ -136,7 +136,7 @@ const gifts = [
     tags: ["home & kitchen"],
     occasions: ["birthday", "valentine's day", "mother's day", "father's day", "anniversary"],
     recipients: ["her", "him", "parent", "friend", "co-worker", "teacher/mentor"],
-    affiliate_url: "https://kindlybox.com/go/chocolate-box", affiliate_network: "amazon"
+    affiliate_url: "/go/chocolate-box", slug: "chocolate-box", destination_url: null, affiliate_network: "amazon"
   },
 
   // ── Travel & adventure (11-13) ────────────────────────────────────────────
@@ -148,7 +148,7 @@ const gifts = [
     tags: ["travel", "home decor"],
     occasions: ["birthday", "graduation", "wedding", "house warming"],
     recipients: ["him", "her", "friend", "sibling", "co-worker"],
-    affiliate_url: "https://kindlybox.com/go/scratch-off-map", affiliate_network: "amazon"
+    affiliate_url: "/go/scratch-off-map", slug: "scratch-off-map", destination_url: null, affiliate_network: "amazon"
   },
   {
     name: "Carry-On Hardside Spinner Suitcase",
@@ -158,7 +158,7 @@ const gifts = [
     tags: ["travel"],
     occasions: ["birthday", "graduation", "promotion/retirement", "wedding"],
     recipients: ["him", "her", "parent", "sibling", "co-worker"],
-    affiliate_url: "https://kindlybox.com/go/spinner-suitcase", affiliate_network: "amazon"
+    affiliate_url: "/go/spinner-suitcase", slug: "spinner-suitcase", destination_url: null, affiliate_network: "amazon"
   },
   {
     name: "Compact Travel DSLR Camera",
@@ -168,7 +168,7 @@ const gifts = [
     tags: ["travel", "tech & gadgets"],
     occasions: ["birthday", "graduation", "promotion/retirement", "father's day"],
     recipients: ["him", "her", "parent", "sibling"],
-    affiliate_url: "https://kindlybox.com/go/dslr-camera", affiliate_network: "amazon"
+    affiliate_url: "/go/dslr-camera", slug: "dslr-camera", destination_url: null, affiliate_network: "amazon"
   },
 
   // ── Tech & gadgets (14-16) ────────────────────────────────────────────────
@@ -180,7 +180,7 @@ const gifts = [
     tags: ["tech & gadgets", "music & instruments"],
     occasions: ["birthday", "graduation", "father's day"],
     recipients: ["him", "her", "child", "parent", "sibling"],
-    affiliate_url: "https://kindlybox.com/go/noise-cancelling-headphones", affiliate_network: "amazon"
+    affiliate_url: "/go/noise-cancelling-headphones", slug: "noise-cancelling-headphones", destination_url: "https://www.amazon.com/dp/B09XS7JWHH", affiliate_network: "amazon"
   },
   {
     name: "Smart Sleep Assistant and Wake-Up Light",
@@ -190,7 +190,7 @@ const gifts = [
     tags: ["tech & gadgets", "fitness & wellness"],
     occasions: ["birthday", "house warming", "father's day", "mother's day"],
     recipients: ["him", "her", "parent", "co-worker"],
-    affiliate_url: "https://kindlybox.com/go/sleep-assistant", affiliate_network: "amazon"
+    affiliate_url: "/go/sleep-assistant", slug: "sleep-assistant", destination_url: null, affiliate_network: "amazon"
   },
   {
     name: "Portable Bluetooth Speaker",
@@ -200,7 +200,7 @@ const gifts = [
     tags: ["tech & gadgets", "music & instruments", "outdoor/ adventure"],
     occasions: ["birthday", "graduation", "father's day"],
     recipients: ["him", "her", "child", "sibling", "friend"],
-    affiliate_url: "https://kindlybox.com/go/bluetooth-speaker", affiliate_network: "amazon"
+    affiliate_url: "/go/bluetooth-speaker", slug: "bluetooth-speaker", destination_url: null, affiliate_network: "amazon"
   },
 
   // ── Fashion & accessories (17-20) ────────────────────────────────────────
@@ -212,7 +212,7 @@ const gifts = [
     tags: ["fashion & accessories"],
     occasions: ["birthday", "anniversary", "mother's day", "valentine's day"],
     recipients: ["her", "parent", "friend", "teacher/mentor"],
-    affiliate_url: "https://kindlybox.com/go/cashmere-scarf", affiliate_network: "awin"
+    affiliate_url: "/go/cashmere-scarf", slug: "cashmere-scarf", destination_url: null, affiliate_network: "awin"
   },
   {
     name: "Minimalist Leather Cardholder",
@@ -222,7 +222,7 @@ const gifts = [
     tags: ["fashion & accessories"],
     occasions: ["birthday", "father's day", "graduation", "promotion/retirement"],
     recipients: ["him", "friend", "co-worker", "sibling"],
-    affiliate_url: "https://kindlybox.com/go/leather-cardholder", affiliate_network: "amazon"
+    affiliate_url: "/go/leather-cardholder", slug: "leather-cardholder", destination_url: null, affiliate_network: "amazon"
   },
   {
     name: "Sleek Stainless Steel Watch",
@@ -232,7 +232,7 @@ const gifts = [
     tags: ["fashion & accessories"],
     occasions: ["birthday", "graduation", "father's day", "promotion/retirement", "anniversary"],
     recipients: ["him", "parent", "co-worker", "sibling"],
-    affiliate_url: "https://kindlybox.com/go/steel-watch", affiliate_network: "amazon"
+    affiliate_url: "/go/steel-watch", slug: "steel-watch", destination_url: null, affiliate_network: "amazon"
   },
   {
     name: "Gold Initial Pendant Necklace",
@@ -242,7 +242,7 @@ const gifts = [
     tags: ["fashion & accessories"],
     occasions: ["birthday", "anniversary", "mother's day", "valentine's day", "wedding"],
     recipients: ["her", "parent", "friend", "sibling"],
-    affiliate_url: "https://kindlybox.com/go/initial-necklace", affiliate_network: "amazon"
+    affiliate_url: "/go/initial-necklace", slug: "initial-necklace", destination_url: null, affiliate_network: "amazon"
   },
 
   // ── Home & decor (21-24) ──────────────────────────────────────────────────
@@ -254,7 +254,7 @@ const gifts = [
     tags: ["home decor", "fitness & wellness"],
     occasions: ["birthday", "house warming", "mother's day", "anniversary"],
     recipients: ["her", "parent", "friend", "teacher/mentor", "co-worker"],
-    affiliate_url: "https://kindlybox.com/go/candle-trio", affiliate_network: "amazon"
+    affiliate_url: "/go/candle-trio", slug: "candle-trio", destination_url: null, affiliate_network: "amazon"
   },
   {
     name: "Indoor Smart Herb Garden",
@@ -264,7 +264,7 @@ const gifts = [
     tags: ["gardening", "home & kitchen", "home decor"],
     occasions: ["birthday", "house warming", "mother's day", "father's day"],
     recipients: ["her", "him", "parent", "friend"],
-    affiliate_url: "https://kindlybox.com/go/smart-herb-garden", affiliate_network: "amazon"
+    affiliate_url: "/go/smart-herb-garden", slug: "smart-herb-garden", destination_url: null, affiliate_network: "amazon"
   },
   {
     name: "Chunky Knit Weighted Blanket",
@@ -274,7 +274,7 @@ const gifts = [
     tags: ["home decor", "fitness & wellness"],
     occasions: ["birthday", "house warming", "mother's day", "father's day"],
     recipients: ["her", "him", "parent", "friend", "sibling"],
-    affiliate_url: "https://kindlybox.com/go/weighted-blanket", affiliate_network: "amazon"
+    affiliate_url: "/go/weighted-blanket", slug: "weighted-blanket", destination_url: null, affiliate_network: "amazon"
   },
   {
     name: "Custom Star Map Print",
@@ -284,7 +284,7 @@ const gifts = [
     tags: ["home decor", "art & crafts"],
     occasions: ["anniversary", "wedding", "valentine's day", "baby shower"],
     recipients: ["her", "him", "parent", "friend", "co-worker"],
-    affiliate_url: "https://kindlybox.com/go/star-map-print", affiliate_network: "etsy"
+    affiliate_url: "/go/star-map-print", slug: "star-map-print", destination_url: null, affiliate_network: "etsy"
   },
 
   // ── Fitness (25-28) ───────────────────────────────────────────────────────
@@ -296,7 +296,7 @@ const gifts = [
     tags: ["tech & gadgets", "fitness & wellness"],
     occasions: ["birthday", "graduation", "father's day", "promotion/retirement"],
     recipients: ["him", "her", "child", "sibling", "parent"],
-    affiliate_url: "https://kindlybox.com/go/fitness-watch", affiliate_network: "amazon"
+    affiliate_url: "/go/fitness-watch", slug: "fitness-watch", destination_url: null, affiliate_network: "amazon"
   },
   {
     name: "Premium Yoga Mat",
@@ -306,7 +306,7 @@ const gifts = [
     tags: ["fitness & wellness"],
     occasions: ["birthday", "mother's day", "graduation"],
     recipients: ["her", "friend", "co-worker", "sibling", "parent"],
-    affiliate_url: "https://kindlybox.com/go/yoga-mat", affiliate_network: "amazon"
+    affiliate_url: "/go/yoga-mat", slug: "yoga-mat", destination_url: "https://www.amazon.com/s?k=manduka+pro+yoga+mat", affiliate_network: "amazon"
   },
   {
     name: "Adjustable Dumbbell Set",
@@ -316,7 +316,7 @@ const gifts = [
     tags: ["fitness & wellness"],
     occasions: ["birthday", "father's day", "graduation", "promotion/retirement"],
     recipients: ["him", "parent", "sibling", "co-worker"],
-    affiliate_url: "https://kindlybox.com/go/adjustable-dumbbells", affiliate_network: "amazon"
+    affiliate_url: "/go/adjustable-dumbbells", slug: "adjustable-dumbbells", destination_url: null, affiliate_network: "amazon"
   },
   {
     name: "Deep Tissue Massage Gun",
@@ -326,7 +326,7 @@ const gifts = [
     tags: ["fitness & wellness", "tech & gadgets"],
     occasions: ["birthday", "father's day", "mother's day", "graduation"],
     recipients: ["him", "her", "parent", "sibling", "friend"],
-    affiliate_url: "https://kindlybox.com/go/massage-gun", affiliate_network: "amazon"
+    affiliate_url: "/go/massage-gun", slug: "massage-gun", destination_url: null, affiliate_network: "amazon"
   },
 
   // ── Baby & personalised (29-30) ──────────────────────────────────────────
@@ -338,7 +338,7 @@ const gifts = [
     tags: ["home decor", "art & crafts"],
     occasions: ["baby shower"],
     recipients: ["her", "him", "friend", "sibling", "co-worker"],
-    affiliate_url: "https://kindlybox.com/go/baby-keepsake-box", affiliate_network: "etsy"
+    affiliate_url: "/go/baby-keepsake-box", slug: "baby-keepsake-box", destination_url: null, affiliate_network: "etsy"
   },
   {
     name: "Monogrammed Silk Pillowcase",
@@ -348,7 +348,7 @@ const gifts = [
     tags: ["home decor", "fashion & accessories", "fitness & wellness"],
     occasions: ["wedding", "anniversary", "house warming", "mother's day", "valentine's day"],
     recipients: ["her", "parent", "friend", "co-worker"],
-    affiliate_url: "https://kindlybox.com/go/silk-pillowcase", affiliate_network: "amazon"
+    affiliate_url: "/go/silk-pillowcase", slug: "silk-pillowcase", destination_url: null, affiliate_network: "amazon"
   }
 ];
 
