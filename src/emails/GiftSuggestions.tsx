@@ -80,7 +80,15 @@ export const GiftSuggestionsEmail = ({
                     ${rec.gift.price_min} - ${rec.gift.price_max}
                   </Text>
                   <Button
-                    href={rec.gift.affiliate_url || `${baseUrl}/results/${sessionId}`}
+                    href={
+                      rec.gift.affiliate_url
+                        // Relative paths like /go/<slug> need the base URL
+                        // prepended so email clients can open them.
+                        ? (rec.gift.affiliate_url.startsWith("http")
+                            ? rec.gift.affiliate_url
+                            : `${baseUrl}${rec.gift.affiliate_url}`)
+                        : `${baseUrl}/results/${sessionId}`
+                    }
                     style={buyButton}
                   >
                     Buy Now →

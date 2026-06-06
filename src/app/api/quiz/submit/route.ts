@@ -84,7 +84,8 @@ export async function POST(request: Request) {
     
     if (recipientEmail) {
       try {
-        await resend.emails.send({
+        console.log("[email] Attempting to send to:", recipientEmail, "from:", process.env.RESEND_FROM_EMAIL);
+        const result = await resend.emails.send({
           from: process.env.RESEND_FROM_EMAIL || 'hello@kindlybox.com',
           to: recipientEmail,
           subject: `Your 3 perfect gifts are here${recipientName ? `, ${recipientName}` : ''} 🎁`,
@@ -94,10 +95,19 @@ export async function POST(request: Request) {
             sessionId,
           }),
         });
+        // Resend returns errors INSIDE the response object, not as exceptions.
+        // We must check result.error explicitly to know if delivery actually failed.
+        if (result?.error) {
+          console.error("[email] Resend returned an error:", JSON.stringify(result.error, null, 2));
+        } else {
+          console.log("[email] Resend accepted with id:", result?.data?.id);
+        }
       } catch (emailErr) {
-        console.error("Error sending email:", emailErr);
+        console.error("[email] Exception while sending:", emailErr);
         // We don't fail the whole request just because email failed
       }
+    } else {
+      console.log("[email] Skipped — no recipient email available");
     }
 
     return NextResponse.json({
