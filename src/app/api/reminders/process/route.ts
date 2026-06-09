@@ -3,15 +3,16 @@ import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import OccasionReminderEmail from '@/emails/OccasionReminder';
 
-// Initialize with service role to bypass RLS for automated jobs
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-const resend = new Resend(process.env.RESEND_API_KEY!);
+// Clients are initialized inside the handler to avoid build-time errors
+// when environment variables are not yet available.
 
 export async function POST(request: Request) {
+  // Initialize with service role to bypass RLS for automated jobs
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+  const resend = new Resend(process.env.RESEND_API_KEY!);
   try {
     // 1. Authenticate cron job if you are using an API key in headers
     // Example: Check Authorization header against an env variable
