@@ -27,6 +27,7 @@ interface Gift {
 interface GiftScore {
   gift: Gift;
   matchScorePercent: number;
+  personalizedReason?: string | null;
 }
 
 interface GiftSuggestionsEmailProps {
@@ -75,23 +76,20 @@ export const GiftSuggestionsEmail = ({
                 <Section style={giftDetails}>
                   <Text style={matchBadge}>{rec.matchScorePercent}% Match</Text>
                   <Heading style={giftTitle}>{rec.gift.name}</Heading>
+                  {rec.personalizedReason ? (
+                    <Text style={personalizedReasonStyle}>
+                      {rec.personalizedReason}
+                    </Text>
+                  ) : null}
                   <Text style={giftDescription}>{rec.gift.description}</Text>
                   <Text style={giftPrice}>
                     ${rec.gift.price_min} - ${rec.gift.price_max}
                   </Text>
                   <Button
-                    href={
-                      rec.gift.affiliate_url
-                        // Relative paths like /go/<slug> need the base URL
-                        // prepended so email clients can open them.
-                        ? (rec.gift.affiliate_url.startsWith("http")
-                            ? rec.gift.affiliate_url
-                            : `${baseUrl}${rec.gift.affiliate_url}`)
-                        : `${baseUrl}/results/${sessionId}`
-                    }
+                    href={`${baseUrl}/results/${sessionId}`}
                     style={buyButton}
                   >
-                    Buy Now →
+                    View this gift →
                   </Button>
                 </Section>
               </Section>
@@ -217,6 +215,16 @@ const giftDescription = {
   fontSize: '14px',
   lineHeight: '20px',
   margin: '0 0 16px 0',
+};
+
+const personalizedReasonStyle = {
+  color: '#1C3A2F',
+  fontSize: '14px',
+  fontStyle: 'italic',
+  lineHeight: '20px',
+  margin: '0 0 10px 0',
+  paddingLeft: '12px',
+  borderLeft: '2px solid #C4954A',
 };
 
 const giftPrice = {

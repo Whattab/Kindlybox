@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { getRecommendations } from "@/lib/recommend";
+import { generatePersonalizedReasons } from "@/lib/personalize";
 import { Resend } from "resend";
 import GiftSuggestionsEmail from "@/emails/GiftSuggestions";
 import * as React from 'react';
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
   try {
     const supabase = createClient();
     const body = await request.json();
-    const { recipient, occasion, interests, budget, firstName, email, ageGroup, gender } = body;
+    const { recipient, occasion, interests, budget, firstName, email, ageGroup, gender, freeText, recipientName } = body;
 
     // 1. Authenticate (optional for quiz)
     const { data: { user } } = await supabase.auth.getUser();
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
     }
 
     // 3. Score and recommend top 3 gifts
-    const recommendations = getRecommendations({ recipient, occasion, interests, budget, ageGroup, gender }, gifts || []);
+    const recommendations = getRecommendations({ recipient, occasion, interests, budget, ageGroup, gender, freeText }, gifts || []);
 
     if (recommendations.length === 0) {
       return NextResponse.json({ error: "No matching gifts found for your criteria" }, { status: 404 });
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
       .insert([
         {
           user_id: user?.id || null,
-          answers: { recipient, occasion, interests, budget, ageGroup, gender },
+          answers: { recipient, occasion, interests, budget, ageGroup, gender, freeText, recipientName },
           email_captured: user ? user.email : email,
           first_name_captured: user ? user.user_metadata?.first_name : firstName,
         }
@@ -62,12 +63,28 @@ export async function POST(request: Request) {
 
     const sessionId = sessionData.id;
 
-    // 5. Save the suggestions
+    // 5a. Generate personalized "why we picked this" notes in parallel.
+    //     Falls back to null on errors — quiz never breaks because of this.
+    const personalizationName = recipientName?.trim() || (user ? user.user_metadata?.first_name : firstName);
+    const personalizedReasons = await generatePersonalizedReasons(
+      { recipient, occasion, interests, budget, ageGroup, gender, freeText, recipientName: personalizationName },
+      recommendations.map((r) => r.gift),
+      recipientName,
+    );
+
+    // Attach the reason to each recommendation so the response + email use it.
+    recommendations.forEach((rec, i) => {
+      (rec as typeof rec & { personalizedReason: string | null }).personalizedReason =
+        personalizedReasons[i] ?? null;
+    });
+
+    // 5b. Save the suggestions (including the AI-generated reason)
     const suggestionsToInsert = recommendations.map((rec, index) => ({
       session_id: sessionId,
       gift_id: rec.gift.id,
       match_score: rec.matchScorePercent,
       rank: index + 1,
+      personalized_reason: personalizedReasons[index] ?? null,
     }));
 
     const { error: suggestionsError } = await supabaseAdmin
@@ -80,7 +97,6 @@ export async function POST(request: Request) {
 
     // 6. Send the email via Resend
     const recipientEmail = user ? user.email : email;
-    const recipientName = user ? user.user_metadata?.first_name : firstName;
     
     if (recipientEmail) {
       try {
@@ -88,9 +104,9 @@ export async function POST(request: Request) {
         const result = await resend.emails.send({
           from: process.env.RESEND_FROM_EMAIL || 'hello@kindlybox.com',
           to: recipientEmail,
-          subject: `Your 3 perfect gifts are here${recipientName ? `, ${recipientName}` : ''} 🎁`,
+          subject: `Your 3 perfect gifts are here${personalizationName ? `, ${personalizationName}` : ''} 🎁`,
           react: React.createElement(GiftSuggestionsEmail, {
-            firstName: recipientName,
+            firstName: personalizationName,
             recommendations,
             sessionId,
           }),

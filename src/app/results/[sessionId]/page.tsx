@@ -2,7 +2,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
-import { Copy, Gift, ArrowRight, Bookmark, RedoDot } from "lucide-react";
+import { Gift, ArrowRight, RedoDot } from "lucide-react";
+import { ShareButtons } from "@/components/ShareButtons";
+import { saveGiftToProfile } from "./actions";
 
 export default async function ResultsPage({
   params,
@@ -10,6 +12,7 @@ export default async function ResultsPage({
   params: { sessionId: string };
 }) {
   const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
   // Fetch session
   const { data: session } = await supabase
@@ -29,6 +32,7 @@ export default async function ResultsPage({
       id,
       match_score,
       rank,
+      personalized_reason,
       gifts (id, name, description, image_url, price_min, price_max, affiliate_url)
     `)
     .eq("session_id", session.id)
@@ -41,6 +45,7 @@ export default async function ResultsPage({
   // Generate share link
   const domain = process.env.NEXT_PUBLIC_APP_URL || "https://kindlybox.com";
   const shareLink = `${domain}/results/${session.id}`;
+  const recipientName = session.answers?.recipientName?.trim();
 
   return (
     <main className="min-h-screen bg-background">
@@ -66,7 +71,7 @@ export default async function ResultsPage({
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             We&apos;ve analyzed your answers and hand-picked these {suggestions.length} premium gifts for {session.answers.recipient === 'partner' ? 'your partner' : `your ${session.answers.recipient}`}.
           </p>
-          <div className="flex items-center justify-center gap-4 mt-8">
+          <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
             <Link 
               href="/quiz"
               className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-accent transition-colors bg-white px-4 py-2 rounded-full shadow-sm border border-gray-100"
@@ -74,6 +79,7 @@ export default async function ResultsPage({
               <RedoDot className="w-4 h-4" />
               Retake Quiz
             </Link>
+            <ShareButtons shareLink={shareLink} />
           </div>
         </div>
 
@@ -109,31 +115,70 @@ export default async function ResultsPage({
                     <h3 className="font-serif text-2xl font-bold text-primary mb-2 line-clamp-1 group-hover:text-accent transition-colors">
                       {gift.name}
                     </h3>
-                    <p className="text-gray-600 text-sm line-clamp-3 leading-relaxed">
+                    {suggestion.personalized_reason ? (
+                      <div className="rounded-2xl border border-accent/20 bg-accent/5 p-3 mb-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent mb-1.5">
+                          Why it fits{recipientName ? ` for ${recipientName}` : ""}
+                        </p>
+                        <p className="text-sm text-primary/90 leading-relaxed whitespace-pre-wrap break-words">
+                          {suggestion.personalized_reason}
+                        </p>
+                      </div>
+                    ) : null}
+                    <p className="text-gray-600 text-sm leading-relaxed">
                       {gift.description}
                     </p>
                   </div>
                   
-                  <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between">
-                    <div className="font-medium text-primary bg-primary/5 px-3 py-1 rounded-lg text-sm">
-                      ${gift.price_min} - ${gift.price_max}
+                  <div className="mt-auto pt-4 border-t border-gray-100 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium text-primary bg-primary/5 px-3 py-1 rounded-lg text-sm">
+                        ${gift.price_min} - ${gift.price_max}
+                      </div>
+                      
+                      <a
+                        href={gift.affiliate_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors shadow-md group/btn"
+                      >
+                        Buy Now
+                        <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                      </a>
                     </div>
-                    
-                    <a
-                      href={gift.affiliate_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors shadow-md group/btn"
-                    >
-                      Buy Now
-                      <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
-                    </a>
+
+                    {user ? (
+                      <form action={saveGiftToProfile} className="w-full">
+                        <input type="hidden" name="gift_name" value={gift.name} />
+                        <input type="hidden" name="gift_description" value={gift.description || ""} />
+                        <input type="hidden" name="gift_id" value={gift.id || ""} />
+                        <input type="hidden" name="image_url" value={gift.image_url || ""} />
+                        <input type="hidden" name="price_paid" value={gift.price_max || gift.price_min || 0} />
+                        <input type="hidden" name="session_id" value={params.sessionId} />
+                        <button
+                          type="submit"
+                          className="w-full rounded-xl border border-primary/10 bg-white px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5 transition-colors"
+                        >
+                          Save to profile
+                        </button>
+                      </form>
+                    ) : (
+                      <Link
+                        href={`/auth/login?next=/results/${params.sessionId}`}
+                        className="block w-full rounded-xl border border-primary/10 bg-white px-4 py-2 text-center text-sm font-semibold text-primary hover:bg-primary/5 transition-colors"
+                      >
+                        Save to profile
+                      </Link>
+                    )}
                   </div>
                 </div>
               </div>
             );
           })}
         </div>
+        <p className="text-center text-xs text-gray-400 mt-12 max-w-2xl mx-auto">
+          KindlyBox may earn a commission from purchases made through links on this page, at no extra cost to you.
+        </p>
       </div>
     </main>
   );

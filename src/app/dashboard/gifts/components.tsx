@@ -27,7 +27,7 @@ export function PurchaseCard({ purchase }: { purchase: any }) {
   };
 
   const giftName = purchase.gifts?.name || purchase.gift_name || "Unknown Gift";
-  const imageUrl = purchase.gifts?.image_url || "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=800&auto=format&fit=crop&q=80";
+  const imageUrl = purchase.gift_image_url || purchase.gifts?.image_url || "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=800&auto=format&fit=crop&q=80";
   const occasionTitle = purchase.occasions?.title;
 
   return (

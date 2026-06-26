@@ -2,11 +2,26 @@ import { createClient } from "@/utils/supabase/server";
 import { QuizFlow } from "@/components/quiz/QuizFlow";
 import Link from "next/link";
 
-export default async function QuizPage() {
+export default async function QuizPage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
   const supabase = createClient();
   const { data: { session } } = await supabase.auth.getSession();
-  
+
   const userEmail = session?.user?.email || null;
+  const initialValues = {
+    recipient: typeof searchParams?.recipient === "string" ? searchParams.recipient : undefined,
+    occasion: typeof searchParams?.occasion === "string" ? searchParams.occasion : undefined,
+    budget: typeof searchParams?.budget === "string" ? searchParams.budget : undefined,
+    ageGroup: typeof searchParams?.ageGroup === "string" ? searchParams.ageGroup : undefined,
+    gender: typeof searchParams?.gender === "string" ? searchParams.gender : undefined,
+    interests:
+      typeof searchParams?.interests === "string"
+        ? searchParams.interests.split(",").filter(Boolean)
+        : undefined,
+  };
 
   return (
     <main className="min-h-screen bg-background flex flex-col">
@@ -43,7 +58,7 @@ export default async function QuizPage() {
           </p>
         </div>
         
-        <QuizFlow userEmail={userEmail} />
+        <QuizFlow userEmail={userEmail} initialValues={initialValues} />
       </div>
     </main>
   );

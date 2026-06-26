@@ -91,6 +91,7 @@ create table public.purchases (
   status text default 'saved', -- saved, ordered, delivered
   recipient_name text,
   notes text,
+  gift_image_url text,
   created_at timestamptz default now()
 );
 

@@ -1,21 +1,35 @@
-// seed-gifts.js
-// Re-seeds the `gifts` table with 30 placeholder products tagged using the
-// EXACT vocabulary the quiz sends. The recommendation engine in lib/recommend.ts
-// matches gift fields against quiz answers literally, so any mismatch (e.g.
-// "house warming" vs "housewarming") would skip the bonus.
+// =============================================================================
+// seed-gifts.js  — THE ONLY GIFT CATALOGUE SEED FILE
+// =============================================================================
 //
-// SAFE TO RE-RUN — this script clears the gifts table first, then inserts
-// fresh records. Use it any time you want to update the catalogue in bulk.
-// Quiz vocabulary reference (from src/components/quiz/QuizFlow.tsx):
+// ⚠️  ALL new gift entries MUST be added here, in the `gifts` array below.
+//     There is no other seed file. (scripts/seed-gifts.js was an old prototype
+//     and has been deleted to avoid confusion.)
+//
+// HOW TO ADD A GIFT
+// -----------------
+//  1. Add a new object to the `gifts` array below.
+//  2. Use ONLY the exact tag/occasion/recipient strings listed in the vocabulary
+//     reference below — any mismatch silently breaks recommendation scoring.
+//  3. Run:  node seed-gifts.js
+//     This clears the gifts table and reloads it from this file.
+//
+// QUIZ VOCABULARY REFERENCE  (must match src/components/quiz/QuizFlow.tsx)
+// -------------------------------------------------------------------------
 //   occasions:   birthday, anniversary, graduation, baby shower, wedding,
 //                valentine's day, promotion/retirement, house warming,
 //                mother's day, father's day
+//
 //   recipients:  him, her, parent, child, sibling, co-worker, teacher/mentor,
 //                friend
-//   interests:   tech & gadgets, fashion & accessories, books & reading,
+//
+//   tags (interests):
+//                tech & gadgets, fashion & accessories, books & reading,
 //                home & kitchen, fitness & wellness, outdoor/ adventure,
 //                art & crafts, music & instruments, gaming, gardening,
 //                movies & tv, travel, pets, home decor
+//
+// =============================================================================
 
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
@@ -349,7 +363,43 @@ const gifts = [
     occasions: ["wedding", "anniversary", "house warming", "mother's day", "valentine's day"],
     recipients: ["her", "parent", "friend", "co-worker"],
     affiliate_url: "/go/silk-pillowcase", slug: "silk-pillowcase", destination_url: null, affiliate_network: "amazon"
-  }
+  },
+
+  // ── Bath & home comfort (31) ──────────────────────────────────────────────
+  {
+    name: "Tens Towels 4-Piece Luxury Bath Towel Set",
+    description: "A soft and absorbent 100% cotton towel set designed for everyday comfort. Lightweight, quick-drying, and generously sized — perfect for upgrading a bathroom or adding a spa-like touch at home.",
+    image_url: "https://images.unsplash.com/photo-1563453392212-326f5e854473?w=800&auto=format&fit=crop&q=60",
+    price_min: 30, price_max: 45,
+    tags: ["home decor", "home & kitchen", "fitness & wellness"],
+    occasions: ["birthday", "house warming", "wedding", "anniversary", "mother's day"],
+    recipients: ["her", "him", "parent", "friend", "sibling", "co-worker"],
+    affiliate_url: "https://www.amazon.com/dp/B08LBN2JPS", slug: "tens-towels", destination_url: "https://www.amazon.com/dp/B08LBN2JPS", affiliate_network: "amazon"
+  },  
+  {
+    name: "Derila Ergo Cervical Neck Pillow for Sleeping Pillow",   
+    description: "True Ergonomic Support: The advanced, high-density memory foam contours perfectly to your unique shape for custom head and shoulder comfort..",
+    image_url: "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=800&auto=format&fit=crop&q=60",
+    price_min: 25, price_max:50,
+    tags: ["fitness & wellness", "home & kitchen"]
+    occasions: ["birthday", "graduation", "mother's day"],
+    recipients: ["her", "him", "friend", "sibling", "co-worker"],
+    affiliate_url: "https://www.amazon.com/dp/B0CRMZHDG8", slug: "stanley-quencher", destination_url: "https://www.amazon.com/dp/B0CRMZHDG8", affiliate_network: "amazon"
+  },
+  {
+  name: "Derila Ergo Cervical Neck Pillow for Sleeping Pillow Contour Memory Foam ",
+  description: "",
+  image_url: "https://images.unsplash.com/photo-XXXX?w=800&auto=format&fit=crop&q=60",
+  price_min: 40, price_max: 70,
+  tags: ["home & kitchen"],                 // interests — see vocabulary below
+  occasions: ["birthday", "wedding",],       // see vocabulary below
+  recipients: ["her", "him", "friend"],     // see vocabulary below
+  affiliate_url: "/go/your-gift-slug", slug: "your-gift-slug", destination_url: "https://www.amazon.com/dp/XXXXXXXXXX", affiliate_network: "amazon"
+}
+
+  
+];
+
 ];
 
 async function seed() {

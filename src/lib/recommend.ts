@@ -5,6 +5,8 @@ export interface QuizAnswers {
   budget: string;
   ageGroup: string;
   gender: string;
+  freeText?: string;
+  recipientName?: string;
 }
 
 export interface Gift {
@@ -28,9 +30,60 @@ export interface GiftScore {
   matchScorePercent: number;
 }
 
-const MAX_SCORE = 30 + 25 + (15 * 3); // 100
+const MAX_SCORE = 30 + 25 + (15 * 3) + 20; // 100-ish with room for free-text relevance
+
+function normalizeText(value: string): string {
+  return (value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function tokenMatchesHaystack(token: string, haystack: string): boolean {
+  if (haystack.includes(token)) {
+    return true;
+  }
+
+  if (token.length > 3 && token.endsWith("s") && haystack.includes(token.slice(0, -1))) {
+    return true;
+  }
+
+  if (token.length > 3 && !token.endsWith("s") && haystack.includes(`${token}s`)) {
+    return true;
+  }
+
+  return false;
+}
+
+function getThemeSignals(text: string): string[] {
+  const normalized = normalizeText(text);
+  const aliases: Record<string, string[]> = {
+    books: ["book", "books", "reading", "novel", "literature", "library"],
+    food: ["cook", "cooking", "food", "kitchen", "baking", "coffee", "tea"],
+    travel: ["travel", "trip", "adventure", "wander", "explore", "holiday"],
+    home: ["home", "decor", "cozy", "comfort", "candle", "house", "bath", "bathroom", "towel", "towels", "linens"],
+    tech: ["tech", "gadget", "device", "digital", "smart", "electronics"],
+    wellness: ["wellness", "wellbeing", "fitness", "spa", "selfcare", "relax"],
+    fashion: ["fashion", "style", "clothes", "accessories", "beauty"],
+    sport: ["sport", "active", "gym", "outdoor", "running", "hike"],
+  };
+
+  return Object.entries(aliases)
+    .filter(([, words]) => words.some((word) => normalized.includes(word)))
+    .map(([signal]) => signal);
+}
 
 export function getRecommendations(answers: QuizAnswers, catalogue: Gift[]): GiftScore[] {
+  const freeText = (answers.freeText || "").trim().toLowerCase();
+  const freeTextTokens = freeText
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .filter((token) => token.length > 2);
+
+  // Combine theme signals from both the free-text box AND the structured interests
+  // so that selecting "home & kitchen" or "home decor" also surfaces gifts tagged
+  // with related keywords like "towel", "bath", "linens" etc.
+  const interestsText = (answers.interests ?? []).join(" ");
+  const combinedSignalText = [freeText, interestsText].filter(Boolean).join(" ");
+  const themeSignals = getThemeSignals(combinedSignalText);
+
   // 1. Filter by budget
   const filteredGifts = catalogue.filter(gift => {
     switch (answers.budget) {
@@ -82,6 +135,28 @@ export function getRecommendations(answers: QuizAnswers, catalogue: Gift[]): Gif
     }
     // Cap matching interests to 3 (though standard quiz only allows 3 anyways)
     score += Math.min(matchingInterestsCount, 3) * 15;
+
+    // Free-text hints should be visible even with a small catalog.
+    if (freeTextTokens.length > 0 || themeSignals.length > 0) {
+      const haystacks = [
+        gift.name,
+        gift.description,
+        ...(gift.tags || []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      const matchingTokens = freeTextTokens.filter((token) => tokenMatchesHaystack(token, haystacks));
+      const matchingThemes = themeSignals.filter((signal) => tokenMatchesHaystack(signal, haystacks));
+
+      score += Math.min(matchingTokens.length, 4) * 6;
+      score += Math.min(matchingThemes.length, 3) * 8;
+
+      if (matchingTokens.length > 0 || matchingThemes.length > 0) {
+        score += 6;
+      }
+    }
 
     return {
       gift,

@@ -8,8 +8,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { QuizAnswers, Gift } from "./recommend";
 
-const GEMINI_MODEL = "gemini-2.0-flash"; // cheap + fast; free tier covers it
-const MAX_OUTPUT_TOKENS = 120;            // ~60 words is plenty
+const GEMINI_MODEL = "gemini-2.5-flash";
+const MAX_OUTPUT_TOKENS = 100;           // enough for a proper 2-sentence personalised note
 
 interface PersonalizeInput {
   answers: QuizAnswers;
@@ -24,10 +24,12 @@ function buildPrompt({ answers, gift, recipientName }: PersonalizeInput): string
   const interests = (answers.interests ?? []).filter(Boolean).join(", ");
   const fields = [
     `Recipient relation: ${answers.recipient}`,
+    recipientName ? `Recipient name: ${recipientName}` : "",
     `Occasion: ${answers.occasion}`,
     interests ? `Their interests: ${interests}` : "",
     answers.ageGroup ? `Age group: ${answers.ageGroup}` : "",
     answers.gender ? `Gender: ${answers.gender}` : "",
+    answers.freeText ? `Extra notes: ${answers.freeText}` : "",
     `Gift name: ${gift.name}`,
     `Gift description: ${gift.description}`,
     recipientName ? `Recipient's first name: ${recipientName}` : "",
@@ -39,13 +41,16 @@ function buildPrompt({ answers, gift, recipientName }: PersonalizeInput): string
     "You are writing a short \"why we picked this gift\" note for KindlyBox, a thoughtful gift recommendation service.",
     "",
     "RULES:",
-    "- 2 to 3 sentences, under 60 words total.",
-    "- Warm, personal, specific to this person's situation.",
+    "- 2 sentences, under 55 words total.",
+    "- Warm, personal, and a little heartfelt, like a short card message.",
+    "- Specific to this person's situation and the occasion.",
+    "- Use at least one concrete detail from the extra notes when available.",
     "- Write in third person referring to the recipient.",
-    "- Never use the word \"perfect\" or generic salesy language.",
+    "- Avoid generic salesy language and never use the word \"perfect\".",
     "- No emoji.",
     "- Don't begin with the phrase \"For their\" — vary the opening.",
     "- Don't restate the gift name in the first sentence.",
+    "- Make it feel thoughtful and considered rather than promotional.",
     "",
     "DETAILS:",
     fields,
@@ -57,6 +62,58 @@ function buildPrompt({ answers, gift, recipientName }: PersonalizeInput): string
 /**
  * Generate a personalized note for one gift. Returns null on failure.
  */
+function looksComplete(text: string): boolean {
+  const cleaned = text.replace(/^['"]|['"]$/g, "").trim();
+  if (!cleaned || cleaned.length < 20) return false;
+  if (cleaned.includes("...")) return false;
+  return /[.!?]$/.test(cleaned) || cleaned.split(/\s+/).length >= 8;
+}
+
+function buildFallbackNote({ answers, gift, recipientName }: PersonalizeInput): string | null {
+  const freeText = (answers.freeText || "").trim();
+  const occasion = answers.occasion ? answers.occasion.replace(/-/g, " ") : "this occasion";
+  const recipientLabel = recipientName?.trim() || (answers.recipient === "partner"
+    ? "your partner"
+    : answers.recipient === "parent"
+      ? "them"
+      : answers.recipient === "friend"
+        ? "them"
+        : "them");
+
+  // Extract a short, meaningful fragment from the gift description for specificity.
+  // We take the first sentence (up to the first period) and cap at 80 chars.
+  const rawDesc = (gift.description || "").trim();
+  const firstSentence = rawDesc.split(".")[0].trim();
+  const giftDetail = firstSentence.length > 10 && firstSentence.length <= 80
+    ? firstSentence
+    : rawDesc.slice(0, 80).trim();
+
+  if (!freeText) {
+    return `${giftDetail} — making it a genuinely fitting choice for ${occasion}. It strikes the right balance of thoughtfulness and practicality for ${recipientLabel}.`;
+  }
+
+  const normalized = freeText.toLowerCase();
+  const hint = normalized.includes("book") || normalized.includes("reading")
+    ? "their love of books and quiet time"
+    : normalized.includes("cook") || normalized.includes("food")
+      ? "their passion for food and the kitchen"
+      : normalized.includes("travel") || normalized.includes("adventure")
+        ? "their sense of adventure"
+        : normalized.includes("home") || normalized.includes("decor") || normalized.includes("towel") || normalized.includes("bath")
+          ? "their appreciation for home comforts"
+          : normalized.includes("tech") || normalized.includes("gadget")
+            ? "their interest in everyday tech"
+            : normalized.includes("wellness") || normalized.includes("fitness")
+              ? "their focus on wellbeing"
+              : null;
+
+  if (!hint) {
+    return `${giftDetail} — a choice shaped by what you shared about ${recipientLabel}. It feels considered rather than generic, and should land well for ${occasion}.`;
+  }
+
+  return `${giftDetail} — chosen with ${hint} in mind. It feels like a natural fit for ${occasion}, personal enough to show you really thought about it.`;
+}
+
 async function generateOne(input: PersonalizeInput): Promise<string | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -75,10 +132,13 @@ async function generateOne(input: PersonalizeInput): Promise<string | null> {
     const result = await model.generateContent(buildPrompt(input));
     const text = result.response.text().trim();
     // Strip wrapping quotes the model sometimes adds despite instructions.
-    return text.replace(/^["']|["']$/g, "").trim();
+    const cleaned = text.replace(/^['"]|['"]$/g, "").trim();
+    return looksComplete(cleaned)
+      ? cleaned
+      : (buildFallbackNote(input) ?? null);
   } catch (err) {
     console.error("[personalize] Gemini error:", err);
-    return null;
+    return buildFallbackNote(input) ?? null;
   }
 }
 

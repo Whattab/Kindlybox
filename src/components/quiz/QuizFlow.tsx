@@ -23,6 +23,8 @@ interface QuizState {
   gender: Gender | "";
   interests: Interest[];
   budget: Budget | "";
+  freeText: string;
+  recipientName: string;
 }
 
 const quizSteps = [
@@ -99,18 +101,25 @@ const budgets = [
   { id: "no-limit", label: "No limit" },
 ];
 
-export function QuizFlow({ userEmail }: { userEmail: string | null }) {
+interface QuizFlowProps {
+  userEmail: string | null;
+  initialValues?: Partial<QuizState>;
+}
+
+export function QuizFlow({ userEmail, initialValues }: QuizFlowProps) {
   const router = useRouter();
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [direction, setDirection] = useState<"forward" | "backward">("forward");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [quizState, setQuizState] = useState<QuizState>({
-    recipient: "",
-    occasion: "",
-    ageGroup: "",
-    gender: "",
-    interests: [],
-    budget: "",
+    recipient: (initialValues?.recipient as Recipient) || "",
+    occasion: (initialValues?.occasion as Occasion) || "",
+    ageGroup: (initialValues?.ageGroup as AgeGroup) || "",
+    gender: (initialValues?.gender as Gender) || "",
+    interests: (initialValues?.interests as Interest[]) || [],
+    budget: (initialValues?.budget as Budget) || "",
+    freeText: "",
+    recipientName: "",
   });
   
   const [emailState, setEmailState] = useState({ firstName: "", email: userEmail || "" });
@@ -229,17 +238,33 @@ export function QuizFlow({ userEmail }: { userEmail: string | null }) {
           )}
 
           {currentStepIndex === 1 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {recipients.map(r => (
-                <button
-                  key={r.id}
-                  onClick={() => setQuizState(s => ({ ...s, recipient: r.id as Recipient }))}
-                  className={`flex flex-col items-center justify-center p-6 border-2 rounded-2xl transition-all duration-200 ${quizState.recipient === r.id ? 'border-accent bg-accent/5 text-accent shadow-sm' : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50 text-gray-600'}`}
-                >
-                  <r.icon className="w-8 h-8 mb-3" />
-                  <span className="font-medium text-sm text-center">{r.label}</span>
-                </button>
-              ))}
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {recipients.map(r => (
+                  <button
+                    key={r.id}
+                    onClick={() => setQuizState(s => ({ ...s, recipient: r.id as Recipient }))}
+                    className={`flex flex-col items-center justify-center p-6 border-2 rounded-2xl transition-all duration-200 ${quizState.recipient === r.id ? 'border-accent bg-accent/5 text-accent shadow-sm' : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50 text-gray-600'}`}
+                  >
+                    <r.icon className="w-8 h-8 mb-3" />
+                    <span className="font-medium text-sm text-center">{r.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Recipient name <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={quizState.recipientName}
+                  onChange={(e) => setQuizState(s => ({ ...s, recipientName: e.target.value }))}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-700 shadow-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  placeholder="Maya, Alex & Jordan, or just a nickname"
+                />
+                <p className="mt-2 text-xs text-gray-500">This helps make the message feel more personal and ready for a card or song.</p>
+              </div>
             </div>
           )}
 
@@ -292,6 +317,19 @@ export function QuizFlow({ userEmail }: { userEmail: string | null }) {
                     </button>
                   );
                 })}
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Anything else we should know? <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <textarea
+                  value={quizState.freeText}
+                  onChange={(e) => setQuizState(s => ({ ...s, freeText: e.target.value }))}
+                  rows={3}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-700 shadow-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  placeholder="Add a few details like hobbies, favorite colors, or what they already own."
+                />
               </div>
             </div>
           )}
