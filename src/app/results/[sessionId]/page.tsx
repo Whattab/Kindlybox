@@ -1,9 +1,9 @@
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { Gift, ArrowRight, RedoDot } from "lucide-react";
 import { ShareButtons } from "@/components/ShareButtons";
+import { GiftImage } from "@/components/GiftImage";
 import { saveGiftToProfile } from "./actions";
 
 export default async function ResultsPage({
@@ -93,12 +93,7 @@ export default async function ResultsPage({
                 style={{ animationDelay: `${index * 150}ms` }}
               >
                 <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
-                  <Image
-                    src={gift.image_url}
-                    alt={gift.name}
-                    fill
-                    className="object-cover object-center transition-transform duration-700 group-hover:scale-105"
-                  />
+                  <GiftImage src={gift.image_url} alt={gift.name} />
                   <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1.5 z-10">
                     <span className="flex h-2 w-2 relative">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
