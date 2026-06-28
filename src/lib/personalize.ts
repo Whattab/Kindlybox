@@ -8,8 +8,28 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { QuizAnswers, Gift } from "./recommend";
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-2.0-flash"; // aligned with the rest of the app; more stable than 2.5
 const MAX_OUTPUT_TOKENS = 100;           // enough for a proper 2-sentence personalised note
+const MAX_RETRIES = 2;                    // extra attempts after the first, on transient errors
+const RETRY_BASE_MS = 400;                // backoff: 400ms, then 800ms
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Gemini overload/rate-limit/transient network errors are worth retrying;
+// a bad request or auth error is not.
+function isRetryable(err: any): boolean {
+  const status = err?.status ?? err?.response?.status;
+  if (status === 503 || status === 429 || status === 500) return true;
+  const msg = String(err?.message || "").toLowerCase();
+  return (
+    msg.includes("503") ||
+    msg.includes("overload") ||
+    msg.includes("high demand") ||
+    msg.includes("unavailable") ||
+    msg.includes("fetch failed") ||
+    msg.includes("timeout")
+  );
+}
 
 interface PersonalizeInput {
   answers: QuizAnswers;
@@ -120,26 +140,38 @@ async function generateOne(input: PersonalizeInput): Promise<string | null> {
     console.warn("[personalize] GEMINI_API_KEY not set — skipping.");
     return null;
   }
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: GEMINI_MODEL,
-      generationConfig: {
-        temperature: 0.8,
-        maxOutputTokens: MAX_OUTPUT_TOKENS,
-      },
-    });
-    const result = await model.generateContent(buildPrompt(input));
-    const text = result.response.text().trim();
-    // Strip wrapping quotes the model sometimes adds despite instructions.
-    const cleaned = text.replace(/^['"]|['"]$/g, "").trim();
-    return looksComplete(cleaned)
-      ? cleaned
-      : (buildFallbackNote(input) ?? null);
-  } catch (err) {
-    console.error("[personalize] Gemini error:", err);
-    return buildFallbackNote(input) ?? null;
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({
+    model: GEMINI_MODEL,
+    generationConfig: {
+      temperature: 0.8,
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
+    },
+  });
+  const prompt = buildPrompt(input);
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const result = await model.generateContent(prompt);
+      const text = result.response.text().trim();
+      // Strip wrapping quotes the model sometimes adds despite instructions.
+      const cleaned = text.replace(/^['"]|['"]$/g, "").trim();
+      return looksComplete(cleaned)
+        ? cleaned
+        : (buildFallbackNote(input) ?? null);
+    } catch (err) {
+      const willRetry = attempt < MAX_RETRIES && isRetryable(err);
+      if (willRetry) {
+        await sleep(RETRY_BASE_MS * 2 ** attempt); // 400ms, then 800ms
+        continue;
+      }
+      console.error(`[personalize] Gemini error (gave up after ${attempt + 1} attempt(s)):`, err);
+      return buildFallbackNote(input) ?? null;
+    }
   }
+
+  // Unreachable, but keeps the function total.
+  return buildFallbackNote(input) ?? null;
 }
 
 /**
