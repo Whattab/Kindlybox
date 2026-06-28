@@ -14,10 +14,8 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-export async function createGift(formData: FormData) {
-  await assertAdmin();
-  const supabase = createClient();
-
+// Parse + validate the shared gift fields from a form submission.
+function readGiftFields(formData: FormData) {
   const name = (formData.get("name") as string)?.trim();
   const description = ((formData.get("description") as string) || "").trim() || null;
   const image_url = ((formData.get("image_url") as string) || "").trim() || null;
@@ -25,6 +23,8 @@ export async function createGift(formData: FormData) {
   const price_max = Number(formData.get("price_max"));
   const destination_url = ((formData.get("destination_url") as string) || "").trim() || null;
   const affiliate_network = ((formData.get("affiliate_network") as string) || "amazon").trim();
+  // Unchecked checkboxes aren't submitted, so absence = not live.
+  const active = formData.get("active") !== null;
 
   // Multi-select checkbox groups arrive as repeated form fields.
   const tags = formData.getAll("tags") as string[];
@@ -34,6 +34,16 @@ export async function createGift(formData: FormData) {
   if (!name) throw new Error("Gift name is required");
   if (!price_min || !price_max) throw new Error("Both price min and max are required");
   if (price_max < price_min) throw new Error("Price max cannot be less than price min");
+
+  return { name, description, image_url, price_min, price_max, destination_url, affiliate_network, active, tags, occasions, recipients };
+}
+
+export async function createGift(formData: FormData) {
+  await assertAdmin();
+  const supabase = createClient();
+
+  const fields = readGiftFields(formData);
+  const { name } = fields;
 
   // Guarantee a unique slug (the /go/[slug] redirect keys off it).
   const base = slugify(name) || "gift";
@@ -51,19 +61,9 @@ export async function createGift(formData: FormData) {
   }
 
   const { error } = await supabase.from("gifts").insert({
-    name,
-    description,
-    image_url,
-    price_min,
-    price_max,
-    tags,
-    occasions,
-    recipients,
+    ...fields,
     slug,
     affiliate_url: `/go/${slug}`,
-    destination_url,
-    affiliate_network,
-    active: true,
   });
 
   if (error) {
@@ -72,6 +72,24 @@ export async function createGift(formData: FormData) {
   }
 
   revalidatePath("/dashboard/catalog");
+}
+
+export async function updateGift(id: string, formData: FormData) {
+  await assertAdmin();
+  const supabase = createClient();
+
+  const fields = readGiftFields(formData);
+
+  // slug/affiliate_url are intentionally left unchanged so existing /go links
+  // and any saved results keep working even if the name is edited.
+  const { error } = await supabase.from("gifts").update(fields).eq("id", id);
+  if (error) {
+    console.error("Update gift error:", error);
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/dashboard/catalog");
+  revalidatePath(`/dashboard/catalog/${id}`);
 }
 
 export async function deleteGift(id: string) {

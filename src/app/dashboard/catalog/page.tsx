@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import { requireAdmin } from "@/utils/admin";
 import { AddGiftForm, DeleteGiftButton } from "./AddGiftForm";
-import { Boxes, ExternalLink } from "lucide-react";
+import { Boxes, ExternalLink, Pencil } from "lucide-react";
 
 export const dynamic = "force-dynamic"; // always reflect the latest catalogue
 
@@ -43,10 +44,15 @@ export default async function CatalogPage() {
             key={gift.id}
             className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 flex items-center justify-between gap-4"
           >
-            <div className="min-w-0">
+            <Link href={`/dashboard/catalog/${gift.id}`} className="min-w-0 flex-1 group">
               <div className="flex items-center gap-2">
-                <p className="font-semibold text-gray-900 truncate">{gift.name}</p>
-                {!gift.destination_url && (
+                <p className="font-semibold text-gray-900 truncate group-hover:text-accent transition-colors">{gift.name}</p>
+                {!gift.active && (
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-gray-600 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5 flex-shrink-0">
+                    Paused
+                  </span>
+                )}
+                {gift.active && !gift.destination_url && (
                   <span className="text-[10px] font-bold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 flex-shrink-0">
                     Coming soon
                   </span>
@@ -55,8 +61,15 @@ export default async function CatalogPage() {
               <p className="text-sm text-gray-400 truncate">
                 ${gift.price_min}–${gift.price_max} · {gift.slug}
               </p>
-            </div>
+            </Link>
             <div className="flex items-center gap-2 flex-shrink-0">
+              <Link
+                href={`/dashboard/catalog/${gift.id}`}
+                className="text-gray-400 hover:text-accent transition-colors p-2 bg-gray-50 hover:bg-accent/10 rounded-lg"
+                title="View / edit"
+              >
+                <Pencil className="w-4 h-4" />
+              </Link>
               {gift.destination_url && (
                 <a
                   href={gift.destination_url}
