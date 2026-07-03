@@ -17,6 +17,12 @@ const nextConfig = {
       },
     ],
   },
+  webpack: (config, { dev }) => {
+    // The webpack filesystem cache corrupts intermittently on Windows, causing
+    // recurring dev-only ChunkLoadErrors. Disable it in dev for reliability.
+    if (dev) config.cache = false;
+    return config;
+  },
 };
 
 export default nextConfig;
