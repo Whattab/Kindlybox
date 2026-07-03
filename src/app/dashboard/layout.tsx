@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import { isAdminEmail } from "@/utils/admin";
 import { redirect } from "next/navigation";
-import { LogOut, Home as HomeIcon, Calendar, Gift, User, Boxes, Users } from "lucide-react";
+import { LogOut, Home as HomeIcon, Calendar, Gift, User, Boxes, Users, ShoppingBag, Music } from "lucide-react";
 
 export default async function DashboardLayout({
   children,
@@ -20,10 +20,12 @@ export default async function DashboardLayout({
     { label: "Overview", href: "/dashboard", icon: HomeIcon },
     { label: "Occasions", href: "/dashboard/occasions", icon: Calendar },
     { label: "Gift History", href: "/dashboard/gifts", icon: Gift },
+    { label: "My Orders", href: "/dashboard/my-orders", icon: Music },
     // Admin-only — the pages themselves also enforce this via requireAdmin().
     ...(isAdminEmail(user.email)
       ? [
           { label: "Catalogue", href: "/dashboard/catalog", icon: Boxes },
+          { label: "Orders", href: "/dashboard/orders", icon: ShoppingBag },
           { label: "Leads", href: "/dashboard/leads", icon: Users },
         ]
       : []),

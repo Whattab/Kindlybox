@@ -1,9 +1,9 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { 
-  Gift, Calendar, DollarSign, Plus, ArrowRight, 
-  ExternalLink, Clock, CheckCircle2 
+import {
+  Gift, Calendar, DollarSign, Plus, ArrowRight,
+  ExternalLink, Clock, CheckCircle2, Sparkles, Music
 } from "lucide-react";
 import Image from "next/image";
 import { Suspense } from "react";
@@ -261,6 +261,29 @@ export default async function DashboardPage() {
         <h1 className="text-3xl font-serif font-bold text-primary">Good {new Date().getHours() < 12 ? 'morning' : 'afternoon'}, {firstName}.</h1>
         <p className="text-gray-500 mt-1">Here is what&apos;s coming up in your gifting calendar.</p>
       </div>
+
+      {/* Custom extras CTA */}
+      <Link
+        href="/extras"
+        className="group block mb-10 rounded-3xl bg-gradient-to-r from-primary to-accent p-6 sm:p-8 text-white shadow-lg shadow-primary/10 transition-transform hover:-translate-y-0.5"
+      >
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-xl font-serif font-bold">Make it unforgettable</h2>
+              <p className="text-white/80 text-sm mt-0.5 flex items-center gap-2">
+                <Music className="w-4 h-4" /> Order a custom song or a greeting card in your own words.
+              </p>
+            </div>
+          </div>
+          <span className="inline-flex items-center gap-2 rounded-xl bg-white text-primary px-5 py-2.5 text-sm font-semibold group-hover:gap-3 transition-all">
+            Order now <ArrowRight className="w-4 h-4" />
+          </span>
+        </div>
+      </Link>
 
       {/* Stats Row */}
       <Suspense fallback={<StatsSkeleton />}>
