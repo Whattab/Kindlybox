@@ -58,6 +58,19 @@ export default async function OrderDetailPage({ params }: { params: { id: string
             <p className="text-sm text-gray-800 whitespace-pre-wrap bg-gray-50 rounded-xl p-3 border border-gray-100">{order.song_details}</p>
           </div>
         )}
+        {Array.isArray(order.reference_photos) && order.reference_photos.length > 0 && (
+          <div>
+            <p className={labelClass}>Buyer&apos;s photos for the card</p>
+            <div className="flex flex-wrap gap-3">
+              {order.reference_photos.map((url: string, i: number) => (
+                <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block w-24 h-24 rounded-xl overflow-hidden border border-gray-200 hover:ring-2 hover:ring-accent">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt={`reference ${i + 1}`} className="w-full h-full object-cover" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Fulfillment */}

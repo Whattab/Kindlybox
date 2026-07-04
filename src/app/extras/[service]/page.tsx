@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Lock } from "lucide-react";
 import { SERVICES, PRICES_CENTS, formatPrice, OCCASIONS, isServiceType } from "@/lib/extras";
 import { createOrder } from "../actions";
+import { PhotoUpload } from "../PhotoUpload";
 import { SubmitButton } from "@/components/SubmitButton";
 
 export default function OrderBriefPage({ params }: { params: { service: string } }) {
@@ -50,6 +51,8 @@ export default function OrderBriefPage({ params }: { params: { service: string }
               <p className="text-xs text-gray-400 mt-1">We&apos;ll print your words exactly as written.</p>
             </div>
           )}
+
+          {svc.needsCardMessage && <PhotoUpload />}
 
           {svc.needsSongDetails && (
             <div>

@@ -2,9 +2,22 @@
 
 import { createServiceClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
-import { PRICES_CENTS, isServiceType } from "@/lib/extras";
+import { PRICES_CENTS, isServiceType, ASSET_BUCKET } from "@/lib/extras";
 import { sendOrderConfirmation, sendAdminOrderAlert } from "@/lib/order-emails";
 import { redirect } from "next/navigation";
+import { randomUUID } from "crypto";
+
+// Lets an (anonymous) buyer upload a reference photo for their card directly
+// to Storage via a one-time signed URL. Returns the URL to record on the order.
+export async function createBuyerUploadUrl(filename: string) {
+  const admin = createServiceClient();
+  const ext = (filename.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const path = `buyer-uploads/${randomUUID()}.${ext}`;
+  const { data, error } = await admin.storage.from(ASSET_BUCKET).createSignedUploadUrl(path);
+  if (error || !data) throw new Error(error?.message || "Could not start the upload");
+  const { data: pub } = admin.storage.from(ASSET_BUCKET).getPublicUrl(path);
+  return { path: data.path, token: data.token, publicUrl: pub.publicUrl };
+}
 
 // Payment is not wired yet (UI-first). While false, we simulate a successful
 // payment by marking the order "paid" immediately. When Stripe is added, set
@@ -21,6 +34,7 @@ export async function createOrder(formData: FormData) {
   const recipient_name = ((formData.get("recipient_name") as string) || "").trim() || null;
   const card_message = ((formData.get("card_message") as string) || "").trim() || null;
   const song_details = ((formData.get("song_details") as string) || "").trim() || null;
+  const reference_photos = (formData.getAll("reference_photos") as string[]).filter(Boolean);
 
   if (!buyer_email) throw new Error("Your email is required so we can deliver the order");
 
@@ -42,6 +56,7 @@ export async function createOrder(formData: FormData) {
       recipient_name,
       card_message,
       song_details,
+      reference_photos: reference_photos.length ? reference_photos : null,
       price_cents,
       status: PAYMENTS_ENABLED ? "pending_payment" : "paid",
     })
