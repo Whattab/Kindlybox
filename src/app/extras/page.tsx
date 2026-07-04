@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { Music, Mail as MailIcon, Sparkles, Check, ArrowRight } from "lucide-react";
-import { SERVICES, PRICES_CENTS, formatPrice, type ServiceType } from "@/lib/extras";
+import { SERVICES, PRICES_CENTS, formatPrice, extrasEnabled, type ServiceType } from "@/lib/extras";
 
 export const metadata = {
   title: "Custom Songs & Greeting Cards | KindlyBox",
@@ -10,6 +11,7 @@ export const metadata = {
 const ICONS: Record<ServiceType, any> = { song: Music, card: MailIcon, bundle: Sparkles };
 
 export default function ExtrasPage() {
+  if (!extrasEnabled()) notFound();
   const order: ServiceType[] = ["song", "card", "bundle"];
 
   return (

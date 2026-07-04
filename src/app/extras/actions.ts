@@ -2,7 +2,7 @@
 
 import { createServiceClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
-import { PRICES_CENTS, isServiceType, ASSET_BUCKET } from "@/lib/extras";
+import { PRICES_CENTS, isServiceType, ASSET_BUCKET, extrasEnabled } from "@/lib/extras";
 import { sendOrderConfirmation, sendAdminOrderAlert } from "@/lib/order-emails";
 import { redirect } from "next/navigation";
 import { randomUUID } from "crypto";
@@ -10,6 +10,7 @@ import { randomUUID } from "crypto";
 // Lets an (anonymous) buyer upload a reference photo for their card directly
 // to Storage via a one-time signed URL. Returns the URL to record on the order.
 export async function createBuyerUploadUrl(filename: string) {
+  if (!extrasEnabled()) throw new Error("Extras are not available");
   const admin = createServiceClient();
   const ext = (filename.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
   const path = `buyer-uploads/${randomUUID()}.${ext}`;
@@ -25,6 +26,7 @@ export async function createBuyerUploadUrl(filename: string) {
 const PAYMENTS_ENABLED = false;
 
 export async function createOrder(formData: FormData) {
+  if (!extrasEnabled()) throw new Error("Extras are not available");
   const service_type = (formData.get("service_type") as string) || "";
   if (!isServiceType(service_type)) throw new Error("Unknown service");
 

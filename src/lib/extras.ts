@@ -8,6 +8,13 @@ export type ServiceType = "song" | "card" | "bundle";
 // Supabase Storage bucket holding delivered order files (songs/cards).
 export const ASSET_BUCKET = "order-assets";
 
+// Paid extras are hidden unless EXTRAS_ENABLED=true. Keeps the storefront out
+// of production (where payment isn't wired yet) while staying on locally.
+// When Stripe is added, set EXTRAS_ENABLED=true in the Vercel env to launch.
+export function extrasEnabled(): boolean {
+  return process.env.EXTRAS_ENABLED === "true";
+}
+
 // ⬇️ EDIT YOUR PRICES HERE (cents).
 export const PRICES_CENTS: Record<ServiceType, number> = {
   song: 3500,   // $35

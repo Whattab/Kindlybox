@@ -9,6 +9,7 @@ import Image from "next/image";
 import { Suspense } from "react";
 
 import { redirectToQuiz } from "./actions";
+import { extrasEnabled } from "@/lib/extras";
 
 // 1. Loading Skeletons
 function StatsSkeleton() {
@@ -263,6 +264,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Custom extras CTA */}
+      {extrasEnabled() && (
       <Link
         href="/extras"
         className="group block mb-10 rounded-3xl bg-gradient-to-r from-primary to-accent p-6 sm:p-8 text-white shadow-lg shadow-primary/10 transition-transform hover:-translate-y-0.5"
@@ -284,6 +286,7 @@ export default async function DashboardPage() {
           </span>
         </div>
       </Link>
+      )}
 
       {/* Stats Row */}
       <Suspense fallback={<StatsSkeleton />}>

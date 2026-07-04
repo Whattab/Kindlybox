@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Lock } from "lucide-react";
-import { SERVICES, PRICES_CENTS, formatPrice, OCCASIONS, isServiceType } from "@/lib/extras";
+import { SERVICES, PRICES_CENTS, formatPrice, OCCASIONS, isServiceType, extrasEnabled } from "@/lib/extras";
 import { createOrder } from "../actions";
 import { PhotoUpload } from "../PhotoUpload";
 import { SubmitButton } from "@/components/SubmitButton";
 
 export default function OrderBriefPage({ params }: { params: { service: string } }) {
+  if (!extrasEnabled()) return notFound();
   if (!isServiceType(params.service)) return notFound();
   const svc = SERVICES[params.service];
 
