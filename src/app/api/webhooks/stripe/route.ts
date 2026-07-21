@@ -33,7 +33,13 @@ export async function POST(request: Request) {
     const session = event.data.object as Stripe.Checkout.Session;
     const orderId = (session.metadata?.order_id as string) || (session.client_reference_id as string);
 
-    if (orderId) {
+    // For cards this is always "paid", but delayed methods (ACH, Klarna, bank
+    // transfer) complete the session as "unpaid"/"no_payment_required" while
+    // the money is still in flight. Only fulfill once it's genuinely paid —
+    // otherwise we'd email "confirmed" and deliver before funds settle.
+    // (If a delayed method is ever enabled, also handle
+    // checkout.session.async_payment_succeeded / _failed.)
+    if (orderId && session.payment_status === "paid") {
       const admin = createServiceClient();
       // Only the first transition from pending_payment returns a row — this
       // makes duplicate Stripe events idempotent (no double emails).
