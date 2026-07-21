@@ -2,8 +2,8 @@
 
 import { createServiceClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
-import { PRICES_CENTS, isServiceType, ASSET_BUCKET, extrasEnabled } from "@/lib/extras";
-import { sendOrderConfirmation, sendAdminOrderAlert } from "@/lib/order-emails";
+import { PRICES_CENTS, SERVICES, isServiceType, ASSET_BUCKET, extrasEnabled } from "@/lib/extras";
+import { getStripe } from "@/lib/stripe";
 import { redirect } from "next/navigation";
 import { randomUUID } from "crypto";
 
@@ -19,11 +19,6 @@ export async function createBuyerUploadUrl(filename: string) {
   const { data: pub } = admin.storage.from(ASSET_BUCKET).getPublicUrl(path);
   return { path: data.path, token: data.token, publicUrl: pub.publicUrl };
 }
-
-// Payment is not wired yet (UI-first). While false, we simulate a successful
-// payment by marking the order "paid" immediately. When Stripe is added, set
-// this true and the Stripe webhook becomes what flips an order to "paid".
-const PAYMENTS_ENABLED = false;
 
 export async function createOrder(formData: FormData) {
   if (!extrasEnabled()) throw new Error("Extras are not available");
@@ -41,11 +36,14 @@ export async function createOrder(formData: FormData) {
   if (!buyer_email) throw new Error("Your email is required so we can deliver the order");
 
   const price_cents = PRICES_CENTS[service_type];
+  const svc = SERVICES[service_type];
 
   // Link to a logged-in account if there is one (optional).
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
+  // 1. Create the order as pending_payment. The Stripe webhook flips it to
+  //    "paid" (and sends the emails) only after payment actually succeeds.
   const admin = createServiceClient();
   const { data: order, error } = await admin
     .from("orders")
@@ -60,7 +58,7 @@ export async function createOrder(formData: FormData) {
       song_details,
       reference_photos: reference_photos.length ? reference_photos : null,
       price_cents,
-      status: PAYMENTS_ENABLED ? "pending_payment" : "paid",
+      status: "pending_payment",
     })
     .select("id")
     .single();
@@ -70,19 +68,32 @@ export async function createOrder(formData: FormData) {
     throw new Error(error?.message || "Could not create the order");
   }
 
-  // Notify the buyer + admin. Never let an email hiccup break the order.
-  if (!PAYMENTS_ENABLED) {
-    try {
-      await Promise.all([
-        sendOrderConfirmation({ id: order.id, buyer_email, buyer_name, service_type, occasion }),
-        sendAdminOrderAlert({ id: order.id, service_type, occasion, buyer_email }),
-      ]);
-    } catch (e) {
-      console.error("[order-emails] send failed:", e);
-    }
-  }
+  // 2. Create a hosted Stripe Checkout session for this order.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://kindlybox.com";
+  const session = await getStripe().checkout.sessions.create({
+    mode: "payment",
+    customer_email: buyer_email,
+    client_reference_id: order.id,
+    metadata: { order_id: order.id },
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: "usd",
+          unit_amount: price_cents,
+          product_data: {
+            name: `KindlyBox — ${svc.name}`,
+            ...(occasion ? { description: `For a ${occasion}` } : {}),
+          },
+        },
+      },
+    ],
+    success_url: `${appUrl}/extras/success?order=${order.id}`,
+    cancel_url: `${appUrl}/extras/${service_type}`,
+  });
 
-  // TODO(stripe): when PAYMENTS_ENABLED, create a Checkout Session here and
-  // redirect to its URL instead of going straight to success.
-  redirect(`/extras/success?order=${order.id}`);
+  await admin.from("orders").update({ stripe_session_id: session.id }).eq("id", order.id);
+
+  if (!session.url) throw new Error("Could not start checkout");
+  redirect(session.url); // off to Stripe's hosted payment page
 }
