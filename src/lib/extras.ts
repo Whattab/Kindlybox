@@ -17,9 +17,9 @@ export function extrasEnabled(): boolean {
 
 // ⬇️ EDIT YOUR PRICES HERE (cents).
 export const PRICES_CENTS: Record<ServiceType, number> = {
-  song: 3500,   // $35
-  card: 1500,   // $15
-  bundle: 4500, // $45
+  song: 1500,   // $15
+  card: 1000,   // $10
+  bundle: 2500, // $25
 };
 
 export interface ServiceDef {
