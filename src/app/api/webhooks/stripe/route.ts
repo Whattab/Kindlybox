@@ -1,8 +1,13 @@
-// Stripe webhook — the single source of truth for "payment succeeded".
-// Stripe calls this after a Checkout session completes; we verify the
-// signature, flip the order to "paid", and send the confirmation + admin
-// alert emails. Configure the endpoint in the Stripe dashboard (prod) or via
-// `stripe listen --forward-to .../api/webhooks/stripe` (local).
+// Stripe webhook — the single source of truth for order lifecycle.
+// Stripe calls this after a Checkout session resolves; we verify the
+// signature, then:
+//   - completed + paid  → flip the order to "paid" and send the confirmation
+//                          + admin alert emails
+//   - expired           → flip an abandoned order to "cancelled" so it doesn't
+//                          linger as pending_payment forever
+// Configure the endpoint in the Stripe dashboard (prod) or via
+// `stripe listen --forward-to .../api/webhooks/stripe` (local). Subscribe to
+// checkout.session.completed and checkout.session.expired.
 
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
@@ -75,6 +80,22 @@ export async function POST(request: Request) {
           console.error("[stripe webhook] order emails failed:", e);
         }
       }
+    }
+  } else if (event.type === "checkout.session.expired") {
+    // The buyer started checkout but never paid (Stripe expires unfinished
+    // sessions after ~24h). Retire the order so it doesn't sit in
+    // pending_payment forever. Guard on the current status so we never touch
+    // an order that somehow already reached paid.
+    const session = event.data.object as Stripe.Checkout.Session;
+    const orderId = (session.metadata?.order_id as string) || (session.client_reference_id as string);
+
+    if (orderId) {
+      const admin = createServiceClient();
+      await admin
+        .from("orders")
+        .update({ status: "cancelled" })
+        .eq("id", orderId)
+        .eq("status", "pending_payment");
     }
   }
 
