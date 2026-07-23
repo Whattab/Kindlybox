@@ -23,6 +23,7 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-dm-sans)"],
         serif: ["var(--font-cormorant-garamond)"],
+        hand: ["var(--font-caveat)", "cursive"],
       },
     },
   },

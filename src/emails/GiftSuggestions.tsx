@@ -13,6 +13,7 @@ import {
   Text,
 } from '@react-email/components';
 import * as React from 'react';
+import { rankLabel } from '@/lib/quiz-labels';
 
 interface Gift {
   id: string;
@@ -74,7 +75,7 @@ export const GiftSuggestionsEmail = ({
                   style={giftImage}
                 />
                 <Section style={giftDetails}>
-                  <Text style={matchBadge}>{rec.matchScorePercent}% Match</Text>
+                  <Text style={matchBadge}>{rankLabel(index)}</Text>
                   <Heading style={giftTitle}>{rec.gift.name}</Heading>
                   {rec.personalizedReason ? (
                     <Text style={personalizedReasonStyle}>

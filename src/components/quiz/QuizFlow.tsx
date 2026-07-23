@@ -321,15 +321,16 @@ export function QuizFlow({ userEmail, initialValues }: QuizFlowProps) {
 
               <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 p-4">
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Anything else we should know? <span className="text-gray-400 font-normal">(optional)</span>
+                  What&apos;s one thing they&apos;ve mentioned wanting — or something they already love?
                 </label>
                 <textarea
                   value={quizState.freeText}
                   onChange={(e) => setQuizState(s => ({ ...s, freeText: e.target.value }))}
                   rows={3}
                   className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-700 shadow-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                  placeholder="Add a few details like hobbies, favorite colors, or what they already own."
+                  placeholder="e.g. &quot;keeps talking about making bread&quot; or &quot;obsessed with her houseplants&quot; — the more specific, the better the picks."
                 />
+                <p className="mt-2 text-xs text-gray-500">This is what makes the note on each gift feel personal, so even a few words help.</p>
               </div>
             </div>
           )}
