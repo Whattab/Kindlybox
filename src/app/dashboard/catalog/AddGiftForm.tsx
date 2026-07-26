@@ -4,21 +4,11 @@ import { useRef, useState, useTransition } from "react";
 import { createGift, updateGift, deleteGift } from "./actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import { PlusCircle, Save, Trash2, Loader2, CheckCircle2, Image as ImageIcon } from "lucide-react";
+import { TAGS, OCCASIONS, RECIPIENTS } from "@/lib/gift-vocab";
 
-// ── Canonical quiz vocabulary — MUST stay in sync with src/components/quiz/QuizFlow.tsx.
 // Picking from checkboxes (instead of typing) makes a vocabulary typo impossible.
-const TAGS = [
-  "tech & gadgets", "fashion & accessories", "books & reading", "home & kitchen",
-  "fitness & wellness", "outdoor/ adventure", "art & crafts", "music & instruments",
-  "gaming", "gardening", "movies & tv", "travel", "pets", "home decor",
-];
-const OCCASIONS = [
-  "birthday", "anniversary", "graduation", "baby shower", "wedding",
-  "valentine's day", "promotion/retirement", "house warming", "mother's day", "father's day",
-];
-const RECIPIENTS = [
-  "him", "her", "parent", "child", "sibling", "co-worker", "teacher/mentor", "friend",
-];
+// The canonical lists live in @/lib/gift-vocab so the form and the CSV importer
+// validate against exactly the same values.
 
 export type GiftFormInitial = {
   id: string;
@@ -29,6 +19,7 @@ export type GiftFormInitial = {
   price_max: number | string | null;
   destination_url: string | null;
   affiliate_network: string | null;
+  gender?: string | null;
   active?: boolean | null;
   tags: string[] | null;
   occasions: string[] | null;
@@ -37,7 +28,7 @@ export type GiftFormInitial = {
   affiliate_url?: string;
 };
 
-function CheckboxGroup({ name, options, selected }: { name: string; options: string[]; selected: string[] }) {
+function CheckboxGroup({ name, options, selected }: { name: string; options: readonly string[]; selected: string[] }) {
   return (
     <div className="flex flex-wrap gap-2">
       {options.map((opt) => (
@@ -158,6 +149,15 @@ export function GiftForm({ mode, initial }: { mode: "create" | "edit"; initial?:
             <option value="etsy">etsy</option>
             <option value="other">other</option>
           </select>
+        </div>
+        <div>
+          <label className={labelClass}>Gender</label>
+          <select name="gender" defaultValue={initial?.gender ?? "unisex"} className={`${inputClass} bg-white`}>
+            <option value="unisex">Unisex (anyone)</option>
+            <option value="female">For her</option>
+            <option value="male">For him</option>
+          </select>
+          <p className="text-xs text-gray-400 mt-1">Only pick him/her for clearly gendered items — the quiz hides opposite-gender gifts.</p>
         </div>
       </div>
 

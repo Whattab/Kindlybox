@@ -58,6 +58,7 @@ export default async function GiftDetailPage({ params }: { params: { id: string 
             price_max: gift.price_max,
             destination_url: gift.destination_url,
             affiliate_network: gift.affiliate_network,
+            gender: gift.gender,
             active: gift.active,
             tags: gift.tags,
             occasions: gift.occasions,

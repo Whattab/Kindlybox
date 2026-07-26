@@ -2,7 +2,8 @@ import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import { requireAdmin } from "@/utils/admin";
 import { AddGiftForm, DeleteGiftButton } from "./AddGiftForm";
-import { Boxes, ExternalLink, Pencil } from "lucide-react";
+import { BulkImport } from "./BulkImport";
+import { Boxes, ExternalLink, Pencil, UploadCloud } from "lucide-react";
 
 export const dynamic = "force-dynamic"; // always reflect the latest catalogue
 
@@ -28,6 +29,14 @@ export default async function CatalogPage() {
             Add gifts the quiz can recommend. {count} {count === 1 ? "gift" : "gifts"} live.
           </p>
         </div>
+      </div>
+
+      {/* Bulk import */}
+      <div className="bg-white rounded-3xl p-8 shadow-xl shadow-primary/5 border border-gray-100 mb-6">
+        <h2 className="text-xl font-serif font-bold text-primary mb-6 flex items-center gap-2">
+          <UploadCloud className="w-5 h-5 text-accent" /> Bulk import from CSV
+        </h2>
+        <BulkImport />
       </div>
 
       {/* Add form */}

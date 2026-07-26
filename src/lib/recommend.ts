@@ -19,6 +19,7 @@ export interface Gift {
   tags: string[];
   occasions: string[];
   recipients: string[];
+  gender?: string | null; // 'male' | 'female' | 'unisex'; missing = unisex
   affiliate_url: string | null;
   affiliate_network: string | null;
   active: boolean;
@@ -102,8 +103,21 @@ export function getRecommendations(answers: QuizAnswers, catalogue: Gift[]): Gif
     }
   });
 
+  // 1b. Exclude gifts marked for the opposite gender. Relationship (recipient)
+  //     and gender are separate answers, so a men's item must be filtered by
+  //     gender even when the relationship (friend/sibling) matches. 'unisex'
+  //     and unmarked gifts always qualify; an "unknown" quiz gender skips this.
+  const wantGender = (answers.gender || "").toLowerCase();
+  const genderedGifts = filteredGifts.filter(gift => {
+    const g = (gift.gender || "unisex").toLowerCase();
+    if (g === "unisex") return true;
+    if (wantGender === "male") return g === "male";
+    if (wantGender === "female") return g === "female";
+    return true; // "unknown" or unset quiz gender → no gender filtering
+  });
+
   // 2. Score remaining gifts
-  const scoredGifts: GiftScore[] = filteredGifts.map(gift => {
+  const scoredGifts: GiftScore[] = genderedGifts.map(gift => {
     let score = 0;
 
     // +30 points if recipient matches
@@ -168,6 +182,17 @@ export function getRecommendations(answers: QuizAnswers, catalogue: Gift[]): Gif
   // 3. Sort by score descending
   scoredGifts.sort((a, b) => b.score - a.score);
 
-  // Return top 3
-  return scoredGifts.slice(0, 3);
+  // 4. Return the top 3 DISTINCT gifts. Deduping by name means duplicate
+  //    catalog rows (e.g. the same gift imported twice) can never fill more
+  //    than one slot, so a buyer never sees the same suggestion repeated.
+  const seen = new Set<string>();
+  const top: GiftScore[] = [];
+  for (const scored of scoredGifts) {
+    const key = (scored.gift.name || "").trim().toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    top.push(scored);
+    if (top.length === 3) break;
+  }
+  return top;
 }
