@@ -3,7 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { isAdminEmail } from "@/utils/admin";
 import { extrasEnabled } from "@/lib/extras";
 import { redirect } from "next/navigation";
-import { LogOut, Home as HomeIcon, Calendar, Gift, User, Boxes, Users, ShoppingBag, Music } from "lucide-react";
+import { LogOut, Home as HomeIcon, Calendar, Gift, User, Boxes, Users, ShoppingBag, Music, Sparkles } from "lucide-react";
 
 export default async function DashboardLayout({
   children,
@@ -19,6 +19,7 @@ export default async function DashboardLayout({
 
   const navItems = [
     { label: "Overview", href: "/dashboard", icon: HomeIcon },
+    { label: "Find a Gift", href: "/quiz", icon: Sparkles },
     { label: "Occasions", href: "/dashboard/occasions", icon: Calendar },
     { label: "Gift History", href: "/dashboard/gifts", icon: Gift },
     ...(extrasEnabled() ? [{ label: "My Orders", href: "/dashboard/my-orders", icon: Music }] : []),
