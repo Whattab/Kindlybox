@@ -172,6 +172,12 @@ webhook isn't reaching the site — recheck the endpoint URL and `STRIPE_WEBHOOK
 - **Gift `gender` only protects what you tag.** Untagged items are `unisex` and show
   for everyone.
 - **Digital gift cards are NOT part of this launch** — that feature is on hold.
+- **Vercel Hobby blocks commits with an extra co-author.** On the Hobby plan,
+  Vercel only deploys commits whose author/co-authors all have project access. A
+  `Co-Authored-By:` trailer pointing at an outside email makes the deployment
+  show "Blocked — commit author did not have contributing access." Keep the tip
+  commit's authorship to your own GitHub identity (no external co-author trailer),
+  or upgrade to Pro. This is why commit messages here omit that trailer.
 
 ---
 
