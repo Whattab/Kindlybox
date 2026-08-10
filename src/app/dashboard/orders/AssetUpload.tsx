@@ -1,10 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { createAssetUploadUrl, saveAssetUrl } from "./actions";
+import { createAssetUploadUrl, saveAssetUrl, deleteAsset } from "./actions";
 import { ASSET_BUCKET } from "@/lib/extras";
-import { UploadCloud, Loader2, CheckCircle2, Download } from "lucide-react";
+import { UploadCloud, Loader2, CheckCircle2, Download, Trash2 } from "lucide-react";
 
 export function AssetUpload({
   orderId,
@@ -25,6 +25,20 @@ export function AssetUpload({
   const [url, setUrl] = useState(currentUrl ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDeleting, startDelete] = useTransition();
+
+  const handleRemove = () => {
+    setError(null);
+    if (!window.confirm(`Remove the uploaded ${type}? This deletes the file — the order stays.`)) return;
+    startDelete(async () => {
+      try {
+        await deleteAsset(orderId, type);
+        setUrl("");
+      } catch (e: any) {
+        setError(e?.message || "Could not remove the file");
+      }
+    });
+  };
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -63,9 +77,19 @@ export function AssetUpload({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={url} alt="card preview" className="max-h-40 rounded-lg" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
           )}
-          <a href={downloadHref} className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 hover:underline">
-            <Download className="w-4 h-4" /> Current file (download)
-          </a>
+          <div className="mt-2 flex items-center gap-4">
+            <a href={downloadHref} className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 hover:underline">
+              <Download className="w-4 h-4" /> Current file (download)
+            </a>
+            <button
+              type="button"
+              onClick={handleRemove}
+              disabled={isDeleting}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-red-600 hover:underline disabled:opacity-50"
+            >
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Remove
+            </button>
+          </div>
         </div>
       )}
 

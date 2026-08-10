@@ -89,6 +89,34 @@ export async function saveAssetUrl(orderId: string, type: "song" | "card", path:
   return publicUrl;
 }
 
+// Delete a single uploaded asset (song or card) from an order without touching
+// the order itself — removes the file(s) from storage and clears the URL column,
+// so the admin can re-upload or leave it empty.
+export async function deleteAsset(orderId: string, type: "song" | "card") {
+  await assertAdmin();
+  const admin = createServiceClient();
+  const column = type === "song" ? "song_url" : "card_url";
+
+  // Files are stored as `${orderId}/${type}-<timestamp>.<ext>` — remove that type.
+  try {
+    const { data: files } = await admin.storage.from(ASSET_BUCKET).list(orderId);
+    const toRemove = (files ?? [])
+      .filter((f) => f.name.startsWith(`${type}-`))
+      .map((f) => `${orderId}/${f.name}`);
+    if (toRemove.length) await admin.storage.from(ASSET_BUCKET).remove(toRemove);
+  } catch (e) {
+    console.error("[deleteAsset] storage cleanup failed (continuing):", e);
+  }
+
+  const { error } = await admin.from("orders").update({ [column]: null }).eq("id", orderId);
+  if (error) {
+    console.error("Delete asset error:", error);
+    throw new Error(error.message);
+  }
+  revalidatePath(`/dashboard/orders/${orderId}`);
+  revalidatePath("/dashboard/orders");
+}
+
 export async function deliverOrder(id: string) {
   await assertAdmin();
   const admin = createServiceClient();

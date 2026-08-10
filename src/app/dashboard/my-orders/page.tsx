@@ -4,6 +4,7 @@ import { createServiceClient } from "@/utils/supabase/admin";
 import { redirect } from "next/navigation";
 import { SERVICES, formatPrice, isServiceType } from "@/lib/extras";
 import { Music, Mail as MailIcon, Sparkles, ShoppingBag, Download, Clock, CheckCircle2, ArrowRight } from "lucide-react";
+import { DeleteOrderButton } from "./DeleteOrderButton";
 
 export const dynamic = "force-dynamic";
 
@@ -66,15 +67,18 @@ export default async function MyOrdersPage() {
                       </p>
                     </div>
                   </div>
-                  {isDelivered ? (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1 flex-shrink-0">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Ready
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1 flex-shrink-0">
-                      <Clock className="w-3.5 h-3.5" /> In progress
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {isDelivered ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Ready
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1">
+                        <Clock className="w-3.5 h-3.5" /> In progress
+                      </span>
+                    )}
+                    <DeleteOrderButton id={o.id} label={svc?.name || o.service_type} />
+                  </div>
                 </div>
 
                 {isDelivered ? (
