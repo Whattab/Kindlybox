@@ -46,6 +46,11 @@ export async function POST(request: Request) {
     // checkout.session.async_payment_succeeded / _failed.)
     if (orderId && session.payment_status === "paid") {
       const admin = createServiceClient();
+      // The new multi-step flows have no email field — Stripe collects it at
+      // checkout — so backfill buyer_email from the session (authoritative for
+      // the payer). Never overwrite with null.
+      const stripeEmail =
+        session.customer_details?.email || (session.customer_email as string | null) || null;
       // Only the first transition from pending_payment returns a row — this
       // makes duplicate Stripe events idempotent (no double emails).
       const { data: order } = await admin
@@ -53,6 +58,7 @@ export async function POST(request: Request) {
         .update({
           status: "paid",
           stripe_payment_intent: (session.payment_intent as string) ?? null,
+          ...(stripeEmail ? { buyer_email: stripeEmail } : {}),
         })
         .eq("id", orderId)
         .eq("status", "pending_payment")

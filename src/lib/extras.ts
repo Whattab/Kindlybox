@@ -66,10 +66,55 @@ export const SERVICES: Record<ServiceType, ServiceDef> = {
   },
 };
 
+// Shared building blocks for the digital-gift creation flows (song/card/bundle).
+// Displayed as chips; stored verbatim on the order.
 export const OCCASIONS = [
-  "birthday", "anniversary", "wedding", "graduation", "valentine's day",
-  "mother's day", "father's day", "new baby", "thank you", "just because",
+  "Birthday", "Anniversary", "Wedding", "Engagement", "New Baby", "Graduation",
+  "Mother's Day", "Father's Day", "Valentine's Day", "Retirement", "Get Well Soon",
+  "Congratulations", "Sympathy", "Just Because", "Housewarming", "Wedding Toast",
+  "Corporate Event", "Holiday Season",
 ];
+
+// Song flow — Step 2. Genre chips (buyers can also add their own), plus moods.
+export const GENRES = [
+  "Pop", "Acoustic", "R&B", "Country", "Hip-Hop", "Lullaby", "Rock", "Folk",
+  "Jazz", "Classical", "Reggae", "EDM / Dance", "Gospel", "Latin", "Indie", "Musical Theater",
+];
+
+export const MOODS = ["Heartfelt", "Upbeat", "Funny", "Emotional", "Romantic", "Nostalgic"];
+
+// Song flow — Step 5. `id` is stored on the order; label/description are shown.
+export type DeliveryMethod = "audio" | "link" | "video";
+export const DELIVERY_OPTIONS: { id: DeliveryMethod; label: string; description: string }[] = [
+  { id: "audio", label: "Audio file", description: "Sent as a download, ready to share anywhere." },
+  { id: "link", label: "Shareable link", description: "A private page they can open and replay." },
+  { id: "video", label: "Video with lyrics", description: "Lyrics and photos synced to the song." },
+];
+
+// Greeting-card flow — Step 2. Visual theme swatches (Tailwind gradient classes).
+export const CARD_DESIGNS: { id: string; gradient: string; light?: boolean }[] = [
+  { id: "Playful", gradient: "from-[#f0a848] to-[#c94f6d]" },
+  { id: "Elegant", gradient: "from-[#4a3d33] to-[#241a15]" },
+  { id: "Minimal", gradient: "from-[#f5efe0] to-[#d8cdb8]", light: true },
+  { id: "Funny", gradient: "from-[#e0a63a] to-[#b0452e]" },
+];
+
+// Greeting-card flow — Step 6.
+export const CARD_DELIVERY_OPTIONS: { id: string; label: string; description: string }[] = [
+  { id: "link", label: "Send a link", description: "Text or email it straight to them." },
+  { id: "download", label: "Download", description: "Save it and send it yourself." },
+  { id: "pdf", label: "Print-ready PDF", description: "For a card you can hand over in person." },
+];
+
+// Bundle flow — Step 9. Delivery covers both the (instant) card and the
+// (produced-to-order) song, so the descriptions differ from the single flows.
+export const BUNDLE_DELIVERY_OPTIONS: { id: string; label: string; description: string }[] = [
+  { id: "link", label: "Send a link", description: "Card + song open together on one private page." },
+  { id: "download", label: "Download", description: "Both files, sent when they're ready." },
+  { id: "pdf", label: "Print-ready PDF", description: "Print-ready card + song by email link." },
+];
+export const BUNDLE_DELIVERY_NOTE =
+  "Both your card and song are designed individually — your bundle arrives within 2 days.";
 
 export function formatPrice(cents: number, currency = "usd"): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(cents / 100);
