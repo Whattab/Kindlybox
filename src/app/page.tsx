@@ -1,10 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
-import { 
-  ArrowRight, Heart, Gift, Mail, Star, Quote, 
-  Baby, Cake, Sparkles, Home as HomeIcon, Briefcase, GraduationCap 
+import {
+  ArrowRight, Heart, Gift, Mail, Star, Quote,
+  Baby, Cake, Sparkles, Home as HomeIcon, Briefcase, GraduationCap
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
+import { SiteFooter } from "@/components/SiteFooter";
 
 export default async function Home({
   searchParams,
@@ -222,40 +223,7 @@ export default async function Home({
       </section>
 
       {/* Footer */}
-      <footer className="bg-white px-6 pt-16 pb-8 border-t border-gray-100">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
-            <div className="md:col-span-2">
-              <Link href="/" className="font-serif text-3xl font-bold tracking-tight text-primary mb-4 block">
-                KindlyBox
-              </Link>
-              <p className="text-gray-500 max-w-sm">
-                Taking the stress out of gifting. Find the perfect, thoughtful gift for every occasion, every time.
-              </p>
-            </div>
-            <div>
-              <h4 className="font-bold text-gray-900 mb-4">Product</h4>
-              <ul className="space-y-3">
-                <li><Link href="/quiz" className="text-gray-500 hover:text-accent">Take the Quiz</Link></li>
-                <li><Link href="/dashboard" className="text-gray-500 hover:text-accent">My Dashboard</Link></li>
-                <li><Link href="/auth/signup" className="text-gray-500 hover:text-accent">Create Account</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-bold text-gray-900 mb-4">Company</h4>
-              <ul className="space-y-3">
-                <li><a href="#" className="text-gray-500 hover:text-accent">About Us</a></li>
-                <li><a href="#" className="text-gray-500 hover:text-accent">Contact</a></li>
-                <li><a href="#" className="text-gray-500 hover:text-accent">Privacy Policy</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-gray-100 pt-8 flex flex-col md:flex-row items-center justify-between text-gray-400 text-sm">
-            <p>© {new Date().getFullYear()} KindlyBox. All rights reserved.</p>
-            <p className="mt-2 md:mt-0">Designed elegantly.</p>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </main>
   );
 }
