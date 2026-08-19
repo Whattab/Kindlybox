@@ -13,6 +13,9 @@ export async function SiteNav() {
         KindlyBox
       </Link>
       <div className="flex items-center gap-6">
+        <Link href="/blog" className="hidden sm:inline text-sm font-semibold text-primary hover:text-accent transition-colors">
+          Gift Guides
+        </Link>
         {session ? (
           <Link href="/dashboard" className="text-sm font-semibold text-primary hover:text-accent transition-colors">
             Dashboard

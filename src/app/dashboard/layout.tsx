@@ -3,7 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { isAdminEmail } from "@/utils/admin";
 import { extrasEnabled } from "@/lib/extras";
 import { redirect } from "next/navigation";
-import { LogOut, Home as HomeIcon, Calendar, Gift, User, Boxes, Users, ShoppingBag, Music, Sparkles, Radar } from "lucide-react";
+import { LogOut, Home as HomeIcon, Calendar, Gift, User, Boxes, Users, ShoppingBag, Music, Sparkles, Radar, FileText } from "lucide-react";
 
 export default async function DashboardLayout({
   children,
@@ -27,6 +27,7 @@ export default async function DashboardLayout({
     ...(isAdminEmail(user.email)
       ? [
           { label: "Gift Intelligence", href: "/dashboard/intelligence", icon: Radar },
+          { label: "Articles", href: "/dashboard/articles", icon: FileText },
           { label: "Catalogue", href: "/dashboard/catalog", icon: Boxes },
           { label: "Orders", href: "/dashboard/orders", icon: ShoppingBag },
           { label: "Leads", href: "/dashboard/leads", icon: Users },

@@ -1,8 +1,10 @@
+import Link from "next/link";
 import { requireAdmin } from "@/utils/admin";
 import { createServiceClient } from "@/utils/supabase/admin";
-import { Sparkles, TrendingUp, Flame, Clock, Radar, ExternalLink } from "lucide-react";
+import { Sparkles, TrendingUp, Flame, Clock, Radar, ExternalLink, FileText } from "lucide-react";
 import { RunButton } from "./RunButton";
 import { StatusButtons } from "./StatusButtons";
+import { WriteArticleButton } from "./WriteArticleButton";
 
 export const dynamic = "force-dynamic";
 
@@ -39,12 +41,18 @@ export default async function IntelligencePage() {
   await requireAdmin();
   const admin = createServiceClient();
 
-  const [{ data: opps }, { data: sources }] = await Promise.all([
+  const [{ data: opps }, { data: sources }, { data: articles }] = await Promise.all([
     admin.from("content_opportunities").select("*").neq("status", "ARCHIVED").order("overall_score", { ascending: false }),
     admin.from("trend_sources").select("source_name, source_type, active, last_checked, last_status").order("active", { ascending: false }),
+    admin.from("articles").select("id, slug, status, opportunity_id"),
   ]);
 
   const list = opps ?? [];
+  // Opportunities that already have a draft link straight to it instead of
+  // offering to write a second one.
+  const articleByOpp = new Map(
+    (articles ?? []).filter((a) => a.opportunity_id).map((a) => [a.opportunity_id as string, a]),
+  );
   const activeSources = (sources ?? []).filter((s) => s.active);
   const lastChecked = (sources ?? []).map((s) => s.last_checked).filter(Boolean).sort().pop();
 
@@ -165,7 +173,24 @@ export default async function IntelligencePage() {
                           </>
                         )}
                       </div>
-                      <StatusButtons id={o.id} status={o.status} />
+                      <div className="flex items-center gap-2.5 flex-wrap justify-end">
+                        {(() => {
+                          const article = articleByOpp.get(o.id);
+                          if (article) {
+                            return (
+                              <Link
+                                href={`/dashboard/articles/${article.id}`}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 text-gray-600 px-3.5 py-1.5 text-xs font-semibold hover:text-accent hover:border-accent/40 transition-colors"
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                {article.status === "PUBLISHED" ? "View article" : "Edit draft"}
+                              </Link>
+                            );
+                          }
+                          return o.status === "APPROVED" ? <WriteArticleButton opportunityId={o.id} /> : null;
+                        })()}
+                        <StatusButtons id={o.id} status={o.status} />
+                      </div>
                     </div>
                   </div>
                 </div>

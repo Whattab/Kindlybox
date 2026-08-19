@@ -19,6 +19,7 @@ export function SiteFooter() {
             <h4 className="font-bold text-gray-900 mb-4">Product</h4>
             <ul className="space-y-3">
               <li><Link href="/quiz" className="text-gray-500 hover:text-accent">Take the Quiz</Link></li>
+              <li><Link href="/blog" className="text-gray-500 hover:text-accent">Gift Guides</Link></li>
               <li><Link href="/dashboard" className="text-gray-500 hover:text-accent">My Dashboard</Link></li>
               <li><Link href="/auth/signup" className="text-gray-500 hover:text-accent">Create Account</Link></li>
             </ul>
