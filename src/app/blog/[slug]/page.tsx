@@ -6,10 +6,35 @@ import { SiteNav } from "@/components/SiteNav";
 import { SiteFooter } from "@/components/SiteFooter";
 import { GiftImage } from "@/components/GiftImage";
 import { Markdown } from "@/components/Markdown";
-import { PRODUCTS_TOKEN, type ProductBlock } from "@/lib/intelligence/writer";
-import { ArrowRight, ArrowLeft, Sparkles } from "lucide-react";
+import { PRODUCTS_TOKEN, extractFaq, type ProductBlock } from "@/lib/intelligence/writer";
+import { ArrowRight, ArrowLeft, Sparkles, BookOpen } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+
+// Other published guides to point at, preferring ones that share a keyword.
+// Internal links are what make a growing blog compound.
+async function relatedGuides(article: any, limit = 3) {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("articles")
+    .select("slug, title, excerpt, primary_keyword, secondary_keywords, published_at")
+    .eq("status", "PUBLISHED")
+    .neq("slug", article.slug)
+    .order("published_at", { ascending: false })
+    .limit(24);
+
+  const mine = new Set(
+    [article.primary_keyword, ...(article.secondary_keywords ?? [])]
+      .filter(Boolean)
+      .map((k: string) => k.toLowerCase()),
+  );
+  const overlap = (a: any) =>
+    [a.primary_keyword, ...(a.secondary_keywords ?? [])]
+      .filter(Boolean)
+      .filter((k: string) => mine.has(k.toLowerCase())).length;
+
+  return (data ?? []).sort((a, b) => overlap(b) - overlap(a)).slice(0, limit);
+}
 
 async function getArticle(slug: string) {
   // Anon client: RLS restricts this to PUBLISHED rows, so an unpublished draft
@@ -110,17 +135,36 @@ export default async function ArticlePage({ params }: { params: { slug: string }
   // Without it (hand-written article), the cards go after the prose.
   const [before, after] = body.includes(PRODUCTS_TOKEN) ? body.split(PRODUCTS_TOKEN) : [body, ""];
 
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    headline: article.title,
-    description: article.meta_description || article.excerpt || undefined,
-    image: article.hero_image_url || undefined,
-    datePublished: article.published_at || undefined,
-    dateModified: article.updated_at || article.published_at || undefined,
-    publisher: { "@type": "Organization", name: "KindlyBox" },
-    mainEntityOfPage: { "@type": "WebPage", "@id": `/blog/${article.slug}` },
-  };
+  const related = await relatedGuides(article);
+
+  const graph: Record<string, unknown>[] = [
+    {
+      "@type": "Article",
+      headline: article.title,
+      description: article.meta_description || article.excerpt || undefined,
+      image: article.hero_image_url || undefined,
+      datePublished: article.published_at || undefined,
+      dateModified: article.updated_at || article.published_at || undefined,
+      publisher: { "@type": "Organization", name: "KindlyBox" },
+      mainEntityOfPage: { "@type": "WebPage", "@id": `/blog/${article.slug}` },
+    },
+  ];
+
+  // FAQ questions are parsed back out of the body, so the structured data always
+  // matches what the reader actually sees — including after hand edits.
+  const faq = extractFaq(body);
+  if (faq.length > 0) {
+    graph.push({
+      "@type": "FAQPage",
+      mainEntity: faq.map((f) => ({
+        "@type": "Question",
+        name: f.q,
+        acceptedAnswer: { "@type": "Answer", text: f.a },
+      })),
+    });
+  }
+
+  const jsonLd = { "@context": "https://schema.org", "@graph": graph };
 
   return (
     <main className="min-h-screen bg-background flex flex-col font-sans">
@@ -161,6 +205,30 @@ export default async function ArticlePage({ params }: { params: { slug: string }
           <Markdown>{before}</Markdown>
           <ProductCards products={products} />
           {after.trim() && <Markdown>{after}</Markdown>}
+
+          {/* Related guides — internal links, generated even when the writer
+              didn't work any into the prose. */}
+          {related.length > 0 && (
+            <div className="mt-14 border-t border-gray-200 pt-8">
+              <h2 className="font-serif text-2xl font-bold text-primary mb-5 inline-flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-accent" /> More gift guides
+              </h2>
+              <div className="space-y-3">
+                {related.map((r) => (
+                  <Link
+                    key={r.slug}
+                    href={`/blog/${r.slug}`}
+                    className="group block rounded-2xl border border-gray-100 bg-white px-5 py-4 hover:border-accent/40 transition-colors"
+                  >
+                    <p className="font-serif text-lg font-bold text-primary leading-snug group-hover:text-accent transition-colors">
+                      {r.title}
+                    </p>
+                    {r.excerpt && <p className="text-sm text-gray-500 mt-1 line-clamp-2">{r.excerpt}</p>}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Quiz CTA */}
           <div className="mt-14 rounded-3xl bg-[#F8F3E5] border border-[#D9C9A3] p-8 sm:p-10 text-center">

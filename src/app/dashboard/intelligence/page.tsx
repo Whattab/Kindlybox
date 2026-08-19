@@ -183,7 +183,7 @@ export default async function IntelligencePage() {
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 text-gray-600 px-3.5 py-1.5 text-xs font-semibold hover:text-accent hover:border-accent/40 transition-colors"
                               >
                                 <FileText className="w-3.5 h-3.5" />
-                                {article.status === "PUBLISHED" ? "View article" : "Edit draft"}
+                                {article.status === "PUBLISHED" ? "View article" : article.status === "OUTLINE" ? "Edit plan" : "Edit draft"}
                               </Link>
                             );
                           }

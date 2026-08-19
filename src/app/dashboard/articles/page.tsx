@@ -6,6 +6,7 @@ import { FileText, ExternalLink, Radar, PenLine } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 const STATUS_STYLE: Record<string, string> = {
+  OUTLINE: "text-sky-700 bg-sky-50 border-sky-200",
   DRAFT: "text-gray-600 bg-gray-100 border-gray-200",
   REVIEW: "text-amber-700 bg-amber-50 border-amber-200",
   PUBLISHED: "text-emerald-700 bg-emerald-50 border-emerald-200",
@@ -38,8 +39,8 @@ export default async function ArticlesPage() {
             <h1 className="text-3xl font-serif font-bold text-primary">Articles</h1>
             <p className="text-gray-500 mt-0.5">
               {list.length === 0
-                ? "Drafts written from approved gift opportunities land here."
-                : `${counts.PUBLISHED || 0} published · ${counts.DRAFT || 0} draft · ${counts.REVIEW || 0} in review`}
+                ? "Articles planned from approved gift opportunities land here."
+                : `${counts.PUBLISHED || 0} published · ${counts.REVIEW || 0} in review · ${counts.DRAFT || 0} draft · ${counts.OUTLINE || 0} outlined`}
             </p>
           </div>
         </div>
@@ -60,7 +61,7 @@ export default async function ArticlesPage() {
             <Link href="/dashboard/intelligence" className="text-accent font-semibold hover:underline">
               Gift Intelligence
             </Link>{" "}
-            and click <span className="font-semibold">Write article</span>.
+            and click <span className="font-semibold">Plan article</span>.
           </p>
         </div>
       ) : (

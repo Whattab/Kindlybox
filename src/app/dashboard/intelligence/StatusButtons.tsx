@@ -1,11 +1,12 @@
 "use client";
 
 import { useTransition } from "react";
-import { Check, Archive, Loader2, RotateCcw, PenLine, Eye, Globe } from "lucide-react";
+import { Check, Archive, Loader2, RotateCcw, PenLine, Eye, Globe, ListTree } from "lucide-react";
 import { setOpportunityStatus } from "./actions";
 
 // Statuses an article owns — the opportunity just reflects them.
 const IN_PROGRESS: Record<string, { label: string; icon: typeof PenLine; className: string }> = {
+  ANALYZING: { label: "Outlined", icon: ListTree, className: "text-sky-700 bg-sky-50 border-sky-200" },
   WRITING: { label: "Draft written", icon: PenLine, className: "text-gray-600 bg-gray-100 border-gray-200" },
   REVIEW: { label: "In review", icon: Eye, className: "text-amber-700 bg-amber-50 border-amber-200" },
   PUBLISHED: { label: "Published", icon: Globe, className: "text-emerald-700 bg-emerald-50 border-emerald-200" },
