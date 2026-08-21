@@ -6,6 +6,7 @@ import { ShareButtons } from "@/components/ShareButtons";
 import { GiftImage } from "@/components/GiftImage";
 import { saveGiftToProfile } from "./actions";
 import { rankLabel, interestChips, pronounFor } from "@/lib/quiz-labels";
+import { GuidesForYou } from "@/components/GuidesForYou";
 
 export default async function ResultsPage({
   params,
@@ -183,6 +184,11 @@ export default async function ResultsPage({
             );
           })}
         </div>
+        {/* Matched gift guides — highest-intent moment, so they get a second
+            thing to read rather than a dead end. Renders nothing until guides
+            are published. */}
+        <GuidesForYou answers={session.answers} />
+
         <p className="text-center text-xs text-gray-400 mt-12 max-w-2xl mx-auto">
           KindlyBox may earn a commission from purchases made through links on this page, at no extra cost to you.
         </p>
