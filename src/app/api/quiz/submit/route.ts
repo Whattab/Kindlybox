@@ -36,7 +36,13 @@ export async function POST(request: Request) {
     }
 
     // 3. Score and recommend top 3 gifts
-    const recommendations = getRecommendations({ recipient, occasion, interests, budget, ageGroup, gender, freeText }, gifts || []);
+    // The seed rotates which of several equally-good gifts get shown, so two
+    // people giving identical answers don't always see the exact same three.
+    const recommendations = getRecommendations(
+      { recipient, occasion, interests, budget, ageGroup, gender, freeText },
+      gifts || [],
+      { seed: Date.now() },
+    );
 
     if (recommendations.length === 0) {
       return NextResponse.json({ error: "No matching gifts found for your criteria" }, { status: 404 });
