@@ -287,8 +287,11 @@ export function getRecommendations(
       }
     }
 
-    // Prefer something the buyer can actually click through and buy.
-    if (gift.slug || gift.destination_url || gift.affiliate_url) {
+    // Prefer something the buyer can actually click through and buy. Only
+    // destination_url proves that: slug and affiliate_url are auto-generated
+    // for every gift, so including them made this bonus fire for all of them —
+    // including gifts whose /go/ link dead-ends at "coming soon".
+    if (gift.destination_url) {
       score += W.purchasable;
     }
 
@@ -312,8 +315,8 @@ export function getRecommendations(
   shuffled.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
     if (b.reasons.length !== a.reasons.length) return b.reasons.length - a.reasons.length;
-    const aBuy = a.gift.slug || a.gift.destination_url ? 1 : 0;
-    const bBuy = b.gift.slug || b.gift.destination_url ? 1 : 0;
+    const aBuy = a.gift.destination_url ? 1 : 0;
+    const bBuy = b.gift.destination_url ? 1 : 0;
     return bBuy - aBuy; // equal-scoring gifts stay in shuffled order
   });
 
