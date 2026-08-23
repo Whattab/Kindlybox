@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/utils/supabase/server";
+import { createServiceClient } from "@/utils/supabase/admin";
 import { requireAdmin } from "@/utils/admin";
 import { AddGiftForm, DeleteGiftButton } from "./AddGiftForm";
 import { BulkImport } from "./BulkImport";
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic"; // always reflect the latest catalogue
 
 export default async function CatalogPage() {
   await requireAdmin(); // non-admins are redirected away
-  const supabase = createClient();
+  const supabase = createServiceClient();
   const { data: gifts } = await supabase
     .from("gifts")
     .select("id, name, price_min, price_max, slug, destination_url, active, created_at")

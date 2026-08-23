@@ -1,4 +1,4 @@
-import { createClient } from "@/utils/supabase/server";
+import { createServiceClient } from "@/utils/supabase/admin";
 import { requireAdmin } from "@/utils/admin";
 import { ExportLeadsButton } from "./ExportLeadsButton";
 import { DeleteLeadButton } from "./DeleteLeadButton";
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic"; // always show the latest leads
 
 export default async function LeadsPage() {
   await requireAdmin();
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
   const { data: sessions } = await supabase
     .from("quiz_sessions")

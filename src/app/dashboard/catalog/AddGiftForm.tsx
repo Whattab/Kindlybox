@@ -68,10 +68,14 @@ export function GiftForm({ mode, initial }: { mode: "create" | "edit"; initial?:
     setError(null);
     setSavedName(null);
     try {
-      if (isEdit && initial) {
-        await updateGift(initial.id, formData);
-      } else {
-        await createGift(formData);
+      // The actions RETURN their errors rather than throwing, because Next.js
+      // redacts thrown server-action messages in production.
+      const result = isEdit && initial
+        ? await updateGift(initial.id, formData)
+        : await createGift(formData);
+      if (result?.error) {
+        setError(result.error);
+        return;
       }
       setSavedName((formData.get("name") as string) || "Gift");
       if (!isEdit) {

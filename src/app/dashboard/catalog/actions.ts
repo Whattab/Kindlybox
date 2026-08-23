@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
+import { createServiceClient } from "@/utils/supabase/admin";
 import { assertAdmin } from "@/utils/admin";
 import { revalidatePath } from "next/cache";
 import { canonicalTag, canonicalOccasion, canonicalRecipient, canonicalGender, type VocabMatch } from "@/lib/gift-vocab";
@@ -41,11 +41,23 @@ function readGiftFields(formData: FormData) {
   return { name, description, image_url, price_min, price_max, destination_url, affiliate_network, gender, active, tags, occasions, recipients };
 }
 
-export async function createGift(formData: FormData) {
-  await assertAdmin();
-  const supabase = createClient();
+export async function createGift(formData: FormData): Promise<{ error?: string }> {
+  try {
+    await assertAdmin();
+  } catch {
+    return { error: "Your session has expired — reload the page and sign in again." };
+  }
+  const supabase = createServiceClient();
 
-  const fields = readGiftFields(formData);
+  let fields;
+  try {
+    fields = readGiftFields(formData);
+  } catch (e: any) {
+    // Validation messages must be RETURNED, not thrown: Next.js replaces thrown
+    // server-action messages with a generic digest in production, which left the
+    // admin staring at "An error occurred in the Server Components render".
+    return { error: e?.message || "Please check the form and try again." };
+  }
   const { name } = fields;
 
   // Guarantee a unique slug (the /go/[slug] redirect keys off it).
@@ -71,33 +83,44 @@ export async function createGift(formData: FormData) {
 
   if (error) {
     console.error("Create gift error:", error);
-    throw new Error(error.message);
+    return { error: error.message };
   }
 
   revalidatePath("/dashboard/catalog");
+  return {};
 }
 
-export async function updateGift(id: string, formData: FormData) {
-  await assertAdmin();
-  const supabase = createClient();
+export async function updateGift(id: string, formData: FormData): Promise<{ error?: string }> {
+  try {
+    await assertAdmin();
+  } catch {
+    return { error: "Your session has expired — reload the page and sign in again." };
+  }
+  const supabase = createServiceClient();
 
-  const fields = readGiftFields(formData);
+  let fields;
+  try {
+    fields = readGiftFields(formData);
+  } catch (e: any) {
+    return { error: e?.message || "Please check the form and try again." };
+  }
 
   // slug/affiliate_url are intentionally left unchanged so existing /go links
   // and any saved results keep working even if the name is edited.
   const { error } = await supabase.from("gifts").update(fields).eq("id", id);
   if (error) {
     console.error("Update gift error:", error);
-    throw new Error(error.message);
+    return { error: error.message };
   }
 
   revalidatePath("/dashboard/catalog");
   revalidatePath(`/dashboard/catalog/${id}`);
+  return {};
 }
 
 export async function deleteGift(id: string) {
   await assertAdmin();
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
   // gift_suggestions references gifts(id) with no cascade, so clear those first.
   await supabase.from("gift_suggestions").delete().eq("gift_id", id);
@@ -207,7 +230,7 @@ async function imageHeadOk(url: string): Promise<boolean> {
 
 export async function importGiftsCsv(formData: FormData): Promise<ImportReport> {
   await assertAdmin();
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
   const file = formData.get("file") as File | null;
   const mode = (formData.get("mode") as string) === "replace" ? "replace" : "append";

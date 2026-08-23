@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createClient } from "@/utils/supabase/server";
+import { createServiceClient } from "@/utils/supabase/admin";
 import { requireAdmin } from "@/utils/admin";
 import { GiftForm, DeleteGiftButton } from "../AddGiftForm";
 import { ArrowLeft, ExternalLink } from "lucide-react";
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function GiftDetailPage({ params }: { params: { id: string } }) {
   await requireAdmin();
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
   const { data: gift } = await supabase
     .from("gifts")

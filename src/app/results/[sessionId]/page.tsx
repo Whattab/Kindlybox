@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
+import { createServiceClient } from "@/utils/supabase/admin";
 import { ArrowRight, RedoDot, Check } from "lucide-react";
 import { ShareButtons } from "@/components/ShareButtons";
 import { GiftImage } from "@/components/GiftImage";
@@ -16,8 +17,14 @@ export default async function ResultsPage({
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
+  // Quiz results are read with the service client, on the server only. The
+  // quiz_sessions/gift_suggestions tables are no longer world-readable (they
+  // hold captured emails), and results pages must still work for signed-out
+  // shoppers — the session id in the URL is an unguessable UUID.
+  const db = createServiceClient();
+
   // Fetch session
-  const { data: session } = await supabase
+  const { data: session } = await db
     .from("quiz_sessions")
     .select("*")
     .eq("id", params.sessionId)
@@ -28,7 +35,7 @@ export default async function ResultsPage({
   }
 
   // Fetch suggestions
-  const { data: suggestions } = await supabase
+  const { data: suggestions } = await db
     .from("gift_suggestions")
     .select(`
       id,

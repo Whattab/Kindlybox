@@ -1,12 +1,12 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
+import { createServiceClient } from "@/utils/supabase/admin";
 import { assertAdmin } from "@/utils/admin";
 import { revalidatePath } from "next/cache";
 
 export async function deleteLead(id: string) {
   await assertAdmin();
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
   // gift_suggestions.session_id references quiz_sessions(id) ON DELETE CASCADE,
   // so removing the session also clears its suggestions automatically.
