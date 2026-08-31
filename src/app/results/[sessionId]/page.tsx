@@ -42,7 +42,10 @@ export default async function ResultsPage({
       match_score,
       rank,
       personalized_reason,
-      gifts (id, name, description, image_url, price_min, price_max, affiliate_url)
+      source,
+      product_id,
+      gifts (id, name, description, image_url, price_min, price_max, affiliate_url),
+      products (id, title, description, image_url, price, affiliate_link)
     `)
     .eq("session_id", session.id)
     .order("rank", { ascending: true });
@@ -115,7 +118,22 @@ export default async function ResultsPage({
 
         <div className="flex flex-col gap-6 max-w-2xl mx-auto">
           {suggestions.map((suggestion: any, index: number) => {
-            const gift = suggestion.gifts;
+            // A pick is either a curated gift or an affiliate product — normalize
+            // both into the same shape so the card below renders unchanged.
+            const isProduct = suggestion.source === "product" || (!suggestion.gifts && suggestion.products);
+            const p = suggestion.products;
+            const gift = isProduct && p
+              ? {
+                  id: p.id,
+                  name: p.title,
+                  description: p.description,
+                  image_url: p.image_url,
+                  price_min: p.price,
+                  price_max: p.price,
+                  affiliate_url: p.affiliate_link,
+                }
+              : suggestion.gifts;
+            if (!gift) return null;
             return (
               <div
                 key={suggestion.id}
@@ -149,13 +167,13 @@ export default async function ResultsPage({
                 <div className="mt-5 pt-4 border-t border-dashed border-gray-200 space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <div className="font-semibold text-primary text-lg">
-                      ${gift.price_min} - ${gift.price_max}
+                      ${gift.price_min}{gift.price_max && gift.price_max !== gift.price_min ? ` – $${gift.price_max}` : ""}
                     </div>
 
                     <a
                       href={gift.affiliate_url}
                       target="_blank"
-                      rel="noopener noreferrer"
+                      rel={isProduct ? "sponsored nofollow noopener noreferrer" : "noopener noreferrer"}
                       className="inline-flex items-center justify-center gap-2 bg-primary text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-primary/90 transition-colors shadow-md group/btn"
                     >
                       Buy gift
@@ -167,7 +185,7 @@ export default async function ResultsPage({
                     <form action={saveGiftToProfile} className="w-full">
                       <input type="hidden" name="gift_name" value={gift.name} />
                       <input type="hidden" name="gift_description" value={gift.description || ""} />
-                      <input type="hidden" name="gift_id" value={gift.id || ""} />
+                      <input type="hidden" name="gift_id" value={isProduct ? "" : (gift.id || "")} />
                       <input type="hidden" name="image_url" value={gift.image_url || ""} />
                       <input type="hidden" name="price_paid" value={gift.price_max || gift.price_min || 0} />
                       <input type="hidden" name="session_id" value={params.sessionId} />

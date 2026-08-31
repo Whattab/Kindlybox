@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { getRecommendations } from "@/lib/recommend";
+import { loadProductCandidates } from "@/lib/affiliate/candidates";
 import { generatePersonalizedReasons } from "@/lib/personalize";
 import { Resend } from "resend";
 import GiftSuggestionsEmail from "@/emails/GiftSuggestions";
@@ -35,12 +36,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to load gift catalog" }, { status: 500 });
     }
 
-    // 3. Score and recommend top 3 gifts
+    // 3. Score and recommend top 3 gifts — a FREE BLEND of the curated catalogue
+    // and the affiliate products (pre-filtered to fit the answers). The scorer
+    // treats both identically, so the best 3 win regardless of source.
+    const productCandidates = await loadProductCandidates(
+      { recipient, occasion, interests, budget, ageGroup, gender, freeText },
+    );
+    const catalogue = [...(gifts || []), ...productCandidates];
+
     // The seed rotates which of several equally-good gifts get shown, so two
     // people giving identical answers don't always see the exact same three.
     const recommendations = getRecommendations(
       { recipient, occasion, interests, budget, ageGroup, gender, freeText },
-      gifts || [],
+      catalogue,
       { seed: Date.now() },
     );
 
@@ -84,14 +92,21 @@ export async function POST(request: Request) {
         personalizedReasons[i] ?? null;
     });
 
-    // 5b. Save the suggestions (including the AI-generated reason)
-    const suggestionsToInsert = recommendations.map((rec, index) => ({
-      session_id: sessionId,
-      gift_id: rec.gift.id,
-      match_score: rec.matchScorePercent,
-      rank: index + 1,
-      personalized_reason: personalizedReasons[index] ?? null,
-    }));
+    // 5b. Save the suggestions (including the AI-generated reason). A pick is
+    //     either a curated gift (gift_id) or an affiliate product (product_id),
+    //     flagged by `source` so the results page reads the right table.
+    const suggestionsToInsert = recommendations.map((rec, index) => {
+      const isProduct = (rec.gift as any).__source === "product";
+      return {
+        session_id: sessionId,
+        gift_id: isProduct ? null : rec.gift.id,
+        product_id: isProduct ? (rec.gift as any).__productId : null,
+        source: isProduct ? "product" : "gift",
+        match_score: rec.matchScorePercent,
+        rank: index + 1,
+        personalized_reason: personalizedReasons[index] ?? null,
+      };
+    });
 
     const { error: suggestionsError } = await supabaseAdmin
       .from("gift_suggestions")
