@@ -237,6 +237,7 @@ export function getRecommendations(
     // interest's vocabulary appearing in the name/description scores half, so
     // an untagged-but-obviously-relevant gift still surfaces.
     let interestHits = 0;
+    let signalHit = false; // matched the buyer's free-text description or theme
     for (const interest of interests.slice(0, W.maxInterests)) {
       if (listIncludes(gift.tags, interest)) {
         score += W.interestExact;
@@ -272,6 +273,7 @@ export function getRecommendations(
 
       if (matchingTokens.length > 0 || matchingThemes.length > 0) {
         score += W.signalBonus;
+        signalHit = true;
         reasons.push("matches what you described");
       }
     }
@@ -300,12 +302,16 @@ export function getRecommendations(
       score,
       matchScorePercent: Math.max(0, Math.min(100, Math.round((score / maxPossible) * 100))),
       reasons,
-      // Qualified = matched what they told us about the person. With no
-      // interests given, matching the relationship or occasion is the best
-      // signal available.
-      qualified: interests.length > 0
-        ? interestHits > 0
-        : listIncludes(gift.recipients, answers.recipient) || listIncludes(gift.occasions, answers.occasion),
+      // Qualified = genuinely matches what the shopper LIKES or DESCRIBED
+      // (interests or free-text/theme), not merely their demographics. This is
+      // what stops the list padding with, say, jewelry that only matched "for a
+      // parent" when the shopper actually asked for cooking/travel gifts. Only
+      // when NO preference was given at all do we fall back to relationship or
+      // occasion so the quiz still returns something.
+      qualified:
+        interests.length > 0 || freeTextTokens.length > 0 || themeSignals.length > 0
+          ? interestHits > 0 || signalHit
+          : listIncludes(gift.recipients, answers.recipient) || listIncludes(gift.occasions, answers.occasion),
     };
   });
 
