@@ -13,8 +13,29 @@ import type { NormalizedProduct } from "./types";
 const MAX_FEED_SIZE = 60_000;
 const MAX_PER_FEED = 2_500;
 const UPSERT_BATCH = 500;
+const MIN_IMAGE_HEALTH = 0.6; // skip a feed whose sampled images are mostly broken
 
 const isActive = (s: string) => /active|^joined/i.test(s) && !/not joined/i.test(s);
+
+// Does this URL resolve to a real image? Some merchant feeds have missing images
+// and Awin's proxy 302s to a "noimage" placeholder — those must not reach a card.
+async function imageOk(url: string): Promise<boolean> {
+  try {
+    const r = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(8000) });
+    const ct = r.headers.get("content-type") || "";
+    return r.ok && /^image\//.test(ct) && !/noimage/i.test(r.url);
+  } catch {
+    return false;
+  }
+}
+
+// Fraction of a feed's sampled images that actually load (1 = all good).
+async function sampleImageHealth(products: NormalizedProduct[], sample = 12): Promise<number> {
+  const urls = products.slice(0, sample).map((p) => p.image_url).filter(Boolean) as string[];
+  if (urls.length === 0) return 1;
+  const results = await Promise.all(urls.map(imageOk));
+  return results.filter(Boolean).length / results.length;
+}
 
 export interface SyncSummary {
   ran_at: string;
@@ -46,15 +67,23 @@ export async function syncAwin(): Promise<SyncSummary> {
       const rows = feed.noOfProducts > MAX_FEED_SIZE
         ? await downloadFeedCapped(feed.feedId, MAX_PER_FEED * 5)
         : await downloadFeed(feed.feedId);
-      let kept = 0;
+      const feedProducts: NormalizedProduct[] = [];
       for (const row of rows) {
-        if (kept >= MAX_PER_FEED) break;
+        if (feedProducts.length >= MAX_PER_FEED) break;
         const p = normalizeAwin(row, feed.feedId);
-        if (!p) continue;
-        byId.set(`${p.network}:${p.network_product_id}`, p);
-        kept++;
+        if (p) feedProducts.push(p);
       }
-      perFeed.push({ advertiser: feed.advertiserName, feedId: feed.feedId, kept });
+
+      // Image-health gate: a gift site can't show blank cards. If a feed's images
+      // are mostly missing/placeholder, skip the whole feed.
+      const health = await sampleImageHealth(feedProducts);
+      if (feedProducts.length > 0 && health < MIN_IMAGE_HEALTH) {
+        skipped.push({ advertiser: feed.advertiserName, reason: `images mostly broken (${Math.round(health * 100)}% valid)`, size: feed.noOfProducts });
+        continue;
+      }
+
+      for (const p of feedProducts) byId.set(`${p.network}:${p.network_product_id}`, p);
+      perFeed.push({ advertiser: feed.advertiserName, feedId: feed.feedId, kept: feedProducts.length });
     } catch (e: any) {
       skipped.push({ advertiser: feed.advertiserName, reason: e?.message || "download failed", size: feed.noOfProducts });
     }
