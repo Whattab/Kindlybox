@@ -67,7 +67,9 @@ const INTEREST_VOCAB: Record<string, string[]> = {
   "tech & gadgets": ["tech", "gadget", "electronic", "smart", "device", "wireless", "bluetooth", "digital", "camera", "headphone", "speaker", "charger", "kindle", "e-reader"],
   "fashion & accessories": ["fashion", "scarf", "jewelry", "jewellery", "necklace", "bracelet", "ring", "rings", "earring", "earrings", "pendant", "sterling silver", "gold plated", "diamond", "gemstone", "watch", "wallet", "purse", "handbag", "accessory", "style", "cashmere", "silk"],
   "books & reading": ["book", "reading", "read", "journal", "notebook", "novel", "kindle", "e-reader", "literature", "bookmark", "stationery"],
-  "home & kitchen": ["home", "kitchen", "cook", "cooking", "chef", "mug", "cookware", "pasta", "dining", "coffee", "tea", "bake", "baking", "utensil", "cutting board", "apron"],
+  // NB: no bare "home" here — it matched every "home decor" product (blankets,
+  // gemstones) and leaked non-cooking gifts into "home & kitchen" results.
+  "home & kitchen": ["kitchen", "cook", "cooking", "cooks", "chef", "recipe", "recipes", "culinary", "mug", "cookware", "kitchenware", "pasta", "dining", "coffee", "tea", "bake", "baking", "utensil", "cutting board", "apron", "grill", "barware"],
   "fitness & wellness": ["fitness", "wellness", "yoga", "gym", "workout", "exercise", "massage", "spa", "acupressure", "relax", "meditation", "sleep", "self care", "selfcare", "aromatherapy"],
   "outdoor/ adventure": ["outdoor", "adventure", "hike", "hiking", "camp", "camping", "trail", "backpack", "explore", "climbing", "fishing"],
   "art & crafts": ["art", "craft", "paint", "painting", "drawing", "sketch", "diy", "knit", "knitting", "pottery", "calligraphy", "embroidery", "creative"],
@@ -302,16 +304,19 @@ export function getRecommendations(
       score,
       matchScorePercent: Math.max(0, Math.min(100, Math.round((score / maxPossible) * 100))),
       reasons,
-      // Qualified = genuinely matches what the shopper LIKES or DESCRIBED
-      // (interests or free-text/theme), not merely their demographics. This is
-      // what stops the list padding with, say, jewelry that only matched "for a
-      // parent" when the shopper actually asked for cooking/travel gifts. Only
-      // when NO preference was given at all do we fall back to relationship or
-      // occasion so the quiz still returns something.
+      // Qualified = genuinely matches what the shopper asked for. When they
+      // SELECTED interests, the gift must actually match one of those interests
+      // — a loose free-text/theme hit isn't enough, otherwise a "home & kitchen"
+      // quiz leaks in home-decor blankets and gemstones (their "home" tag trips
+      // the "home" theme). Free-text/theme only stands in as the qualifier when
+      // no interests were picked; demographics only when nothing at all was
+      // given, so the quiz never dead-ends.
       qualified:
-        interests.length > 0 || freeTextTokens.length > 0 || themeSignals.length > 0
-          ? interestHits > 0 || signalHit
-          : listIncludes(gift.recipients, answers.recipient) || listIncludes(gift.occasions, answers.occasion),
+        interests.length > 0
+          ? interestHits > 0
+          : freeTextTokens.length > 0 || themeSignals.length > 0
+            ? signalHit
+            : listIncludes(gift.recipients, answers.recipient) || listIncludes(gift.occasions, answers.occasion),
     };
   });
 
