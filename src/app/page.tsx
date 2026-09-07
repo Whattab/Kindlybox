@@ -94,13 +94,16 @@ export default async function Home({
             </div>
           </div>
           
-          <div className="relative h-[500px] lg:h-[600px] w-full rounded-[2rem] overflow-hidden shadow-2xl">
-            <Image 
-              src="https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=1200&auto=format&fit=crop&q=80" 
-              alt="Beautifully wrapped gifts" 
-              fill
-              className="object-cover"
-              priority
+          <div className="relative aspect-video w-full rounded-[2rem] overflow-hidden shadow-2xl">
+            <video
+              src="/hero.mp4"
+              poster="https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=1200&auto=format&fit=crop&q=80"
+              autoPlay
+              muted
+              loop
+              playsInline
+              aria-label="Beautifully wrapped gifts"
+              className="absolute inset-0 w-full h-full object-cover"
             />
           </div>
         </div>
