@@ -64,22 +64,27 @@ const W = {
 // never tagged with it. "gaming" finding a Nintendo bundle matters more than
 // tidy tagging, because the catalogue will always lag the quiz options.
 const INTEREST_VOCAB: Record<string, string[]> = {
-  "tech & gadgets": ["tech", "gadget", "electronic", "smart", "device", "wireless", "bluetooth", "digital", "camera", "headphone", "speaker", "charger", "kindle", "e-reader"],
-  "fashion & accessories": ["fashion", "scarf", "jewelry", "jewellery", "necklace", "bracelet", "ring", "rings", "earring", "earrings", "pendant", "sterling silver", "gold plated", "diamond", "gemstone", "watch", "wallet", "purse", "handbag", "accessory", "style", "cashmere", "silk"],
+  // Audited for over-broad words that leak across categories (see "home" note
+  // below). Removed: "smart" (smart-casual fashion), "style" (matches anything
+  // "styled"), "explore"/"journey"/"voyage" (marketing copy), "creative",
+  // "switch" (light switches), "series" (product naming), "collar" (shirt
+  // collars), "print" (Printerval t-shirt prints). Concrete words still match.
+  "tech & gadgets": ["tech", "gadget", "electronic", "device", "wireless", "bluetooth", "digital", "camera", "headphone", "speaker", "charger", "kindle", "e-reader"],
+  "fashion & accessories": ["fashion", "scarf", "jewelry", "jewellery", "necklace", "bracelet", "ring", "rings", "earring", "earrings", "pendant", "sterling silver", "gold plated", "diamond", "gemstone", "watch", "wallet", "purse", "handbag", "accessory", "cashmere", "silk"],
   "books & reading": ["book", "reading", "read", "journal", "notebook", "novel", "kindle", "e-reader", "literature", "bookmark", "stationery"],
   // NB: no bare "home" here — it matched every "home decor" product (blankets,
   // gemstones) and leaked non-cooking gifts into "home & kitchen" results.
   "home & kitchen": ["kitchen", "cook", "cooking", "cooks", "chef", "recipe", "recipes", "culinary", "mug", "cookware", "kitchenware", "pasta", "dining", "coffee", "tea", "bake", "baking", "utensil", "cutting board", "apron", "grill", "barware"],
   "fitness & wellness": ["fitness", "wellness", "yoga", "gym", "workout", "exercise", "massage", "spa", "acupressure", "relax", "meditation", "sleep", "self care", "selfcare", "aromatherapy"],
-  "outdoor/ adventure": ["outdoor", "adventure", "hike", "hiking", "camp", "camping", "trail", "backpack", "explore", "climbing", "fishing"],
-  "art & crafts": ["art", "craft", "paint", "painting", "drawing", "sketch", "diy", "knit", "knitting", "pottery", "calligraphy", "embroidery", "creative"],
+  "outdoor/ adventure": ["outdoor", "adventure", "hike", "hiking", "camp", "camping", "trail", "backpack", "climbing", "fishing"],
+  "art & crafts": ["art", "craft", "paint", "painting", "drawing", "sketch", "diy", "knit", "knitting", "pottery", "calligraphy", "embroidery"],
   "music & instruments": ["music", "instrument", "guitar", "piano", "vinyl", "record", "headphone", "speaker", "audio", "turntable", "ukulele"],
-  gaming: ["gaming", "game", "gamer", "console", "controller", "playstation", "xbox", "nintendo", "switch", "puzzle", "board game", "arcade", "dice"],
+  gaming: ["gaming", "game", "gamer", "console", "controller", "playstation", "xbox", "nintendo", "puzzle", "board game", "arcade", "dice"],
   gardening: ["garden", "gardening", "plant", "herb", "seed", "planter", "succulent", "botanical", "grow", "greenhouse", "bonsai"],
-  "movies & tv": ["movie", "film", "cinema", "tv", "streaming", "projector", "popcorn", "blu-ray", "series"],
-  travel: ["travel", "luggage", "suitcase", "passport", "trip", "map", "journey", "voyage", "packing", "carry-on"],
-  pets: ["pet", "dog", "cat", "puppy", "kitten", "paw", "leash", "collar", "kennel", "aquarium"],
-  "home decor": ["decor", "decoration", "candle", "vase", "frame", "wall art", "cushion", "throw", "ornament", "lamp", "print", "sculpture", "flower"],
+  "movies & tv": ["movie", "film", "cinema", "tv", "streaming", "projector", "popcorn", "blu-ray"],
+  travel: ["travel", "luggage", "suitcase", "passport", "trip", "map", "packing", "carry-on"],
+  pets: ["pet", "dog", "cat", "puppy", "kitten", "paw", "leash", "kennel", "aquarium"],
+  "home decor": ["decor", "decoration", "candle", "vase", "frame", "wall art", "cushion", "throw", "ornament", "lamp", "sculpture", "flower"],
 };
 
 const MAX_SCORE_FLOOR = 1; // never divide by zero
