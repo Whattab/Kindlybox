@@ -13,29 +13,24 @@ import type { NormalizedProduct } from "./types";
 const MAX_FEED_SIZE = 60_000;
 const MAX_PER_FEED = 2_500;
 const UPSERT_BATCH = 500;
-const MIN_IMAGE_HEALTH = 0.6; // skip a feed whose sampled images are mostly broken
+
+// Deliberate, human-reviewed exclusions — merchants confirmed to have
+// PERSISTENTLY broken/missing images (not a transient blip). This is stable
+// curation, unlike a live per-image check which can't tell a momentary outage
+// from a real gap. Remove a name here if the merchant fixes their feed; better
+// still, un-join them in Awin so they drop out entirely.
+const MERCHANT_BLOCKLIST = new Set<string>([
+  "Black Canyon Home & Body", // images consistently 302 to Awin's "noimage" placeholder
+]);
 
 const isActive = (s: string) => /active|^joined/i.test(s) && !/not joined/i.test(s);
 
-// Does this URL resolve to a real image? Some merchant feeds have missing images
-// and Awin's proxy 302s to a "noimage" placeholder — those must not reach a card.
-async function imageOk(url: string): Promise<boolean> {
-  try {
-    const r = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(8000) });
-    const ct = r.headers.get("content-type") || "";
-    return r.ok && /^image\//.test(ct) && !/noimage/i.test(r.url);
-  } catch {
-    return false;
-  }
-}
-
-// Fraction of a feed's sampled images that actually load (1 = all good).
-async function sampleImageHealth(products: NormalizedProduct[], sample = 12): Promise<number> {
-  const urls = products.slice(0, sample).map((p) => p.image_url).filter(Boolean) as string[];
-  if (urls.length === 0) return 1;
-  const results = await Promise.all(urls.map(imageOk));
-  return results.filter(Boolean).length / results.length;
-}
+// NB: we deliberately do NOT gate products on a live image check at import.
+// Awin's image proxy is intermittently flaky — it serves a "noimage" placeholder
+// while a merchant's source CDN is momentarily down, then the real image once it
+// recovers. A point-in-time check can't tell a transient blip from a truly
+// missing image, so gating here wrongly drops good products. Broken images are
+// handled gracefully at RENDER time instead (GiftImage retries, then falls back).
 
 export interface SyncSummary {
   ran_at: string;
@@ -60,6 +55,10 @@ export async function syncAwin(): Promise<SyncSummary> {
   const byId = new Map<string, NormalizedProduct>();
 
   for (const feed of feeds) {
+    if (MERCHANT_BLOCKLIST.has(feed.advertiserName)) {
+      skipped.push({ advertiser: feed.advertiserName, reason: "blocklisted (persistently broken images)", size: feed.noOfProducts });
+      continue;
+    }
     try {
       // Huge feeds (e.g. Printerval's 542K) stream in as a capped slice; normal
       // feeds download in full. We over-pull raw rows so we still clear
@@ -67,23 +66,15 @@ export async function syncAwin(): Promise<SyncSummary> {
       const rows = feed.noOfProducts > MAX_FEED_SIZE
         ? await downloadFeedCapped(feed.feedId, MAX_PER_FEED * 5)
         : await downloadFeed(feed.feedId);
-      const feedProducts: NormalizedProduct[] = [];
+      let kept = 0;
       for (const row of rows) {
-        if (feedProducts.length >= MAX_PER_FEED) break;
+        if (kept >= MAX_PER_FEED) break;
         const p = normalizeAwin(row, feed.feedId);
-        if (p) feedProducts.push(p);
+        if (!p) continue;
+        byId.set(`${p.network}:${p.network_product_id}`, p);
+        kept++;
       }
-
-      // Image-health gate: a gift site can't show blank cards. If a feed's images
-      // are mostly missing/placeholder, skip the whole feed.
-      const health = await sampleImageHealth(feedProducts);
-      if (feedProducts.length > 0 && health < MIN_IMAGE_HEALTH) {
-        skipped.push({ advertiser: feed.advertiserName, reason: `images mostly broken (${Math.round(health * 100)}% valid)`, size: feed.noOfProducts });
-        continue;
-      }
-
-      for (const p of feedProducts) byId.set(`${p.network}:${p.network_product_id}`, p);
-      perFeed.push({ advertiser: feed.advertiserName, feedId: feed.feedId, kept: feedProducts.length });
+      perFeed.push({ advertiser: feed.advertiserName, feedId: feed.feedId, kept });
     } catch (e: any) {
       skipped.push({ advertiser: feed.advertiserName, reason: e?.message || "download failed", size: feed.noOfProducts });
     }

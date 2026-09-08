@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { syncAwin } from "@/lib/affiliate/sync";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60; // downloads + upserts can take a while
+export const maxDuration = 300; // downloads + per-product image checks take a while
 
 // Scheduled affiliate feed sync (Vercel Cron hits this daily).
 //
