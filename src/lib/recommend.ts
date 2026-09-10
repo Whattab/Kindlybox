@@ -58,6 +58,7 @@ const W = {
   signalBonus: 6,
   priceFit: 8,           // sits comfortably inside the chosen budget band
   purchasable: 4,        // has a real destination we can send the buyer to
+  ageFit: 8,             // clearly suits the recipient's age group
 };
 
 // Vocabulary for each quiz interest, so an interest can match a gift that was
@@ -153,6 +154,22 @@ const BUDGET_BANDS: Record<string, [number, number]> = {
   "100-200": [100, 200],
 };
 
+// Age matching. Products rarely carry an age, so we use keywords to (a) filter
+// obvious mismatches — kids' items for adults, alcohol/partner gifts for minors
+// — and (b) lightly boost milestone-specific gifts. Neutral products (most of
+// the catalogue) always pass the filter.
+const BABY_WORDS = ["baby", "toddler", "infant", "newborn", "nursery", "onesie", "teether", "stroller", "preschool"];
+const KID_WORDS = [...BABY_WORDS, "kids", "kid", "children", "playset", "coloring", "crayon"];
+const ADULT_ONLY_WORDS = ["wine", "whiskey", "whisky", "beer", "vodka", "tequila", "bourbon", "cocktail", "liquor", "anniversary", "husband", "wife"];
+const MILESTONE_WORDS: Record<string, string[]> = {
+  "13-19": ["16th", "18th", "sweet sixteen", "teen"],
+  "20s": ["21st", "21 years"],
+  "30s": ["30th", "30 years"],
+  "40s": ["40th", "40 years"],
+  "50+": ["50th", "60th", "70th", "80th", "50 years", "60 years", "retirement"],
+};
+const isChildAge = (a: string) => a === "under12" || a === "13-19";
+
 // A small, deterministic shuffle so equally-good gifts take turns across
 // quizzes instead of the same three winning forever on table order.
 function seededShuffle<T>(items: T[], seed: number): T[] {
@@ -216,6 +233,18 @@ export function getRecommendations(
     return true; // "unknown" or unset quiz gender → no gender filtering
   });
 
+  // Age filter: drop clear age mismatches. Most (neutral) products pass through.
+  const wantAge = (answers.ageGroup || "").toLowerCase();
+  const ageFiltered = !wantAge ? genderedGifts : genderedGifts.filter(gift => {
+    const hay = [gift.name, gift.description, ...(gift.tags || [])].filter(Boolean).join(" ").toLowerCase();
+    const hasBaby = BABY_WORDS.some(w => containsWord(hay, w));
+    const hasKid = KID_WORDS.some(w => containsWord(hay, w));
+    const hasAdultOnly = ADULT_ONLY_WORDS.some(w => containsWord(hay, w));
+    if (wantAge === "under12") return !hasAdultOnly;           // young child: no alcohol/partner gifts
+    if (wantAge === "13-19") return !hasAdultOnly && !hasBaby; // teen: no alcohol, no baby items
+    return !hasKid;                                            // adult (20s+): no children's items
+  });
+
   // The best score these answers could possibly produce, so the percentage
   // means "how close to a perfect match", not a share of an arbitrary constant.
   const maxPossible = Math.max(
@@ -227,11 +256,12 @@ export function getRecommendations(
       (themeSignals.length > 0 ? Math.min(themeSignals.length, 3) * W.themeSignal : 0) +
       (freeTextTokens.length > 0 || themeSignals.length > 0 ? W.signalBonus : 0) +
       W.priceFit +
-      W.purchasable,
+      W.purchasable +
+      (answers.ageGroup ? W.ageFit : 0),
   );
 
   // 2. Score remaining gifts
-  const scoredGifts: GiftScore[] = genderedGifts.map(gift => {
+  const scoredGifts: GiftScore[] = ageFiltered.map(gift => {
     let score = 0;
     const reasons: string[] = [];
 
@@ -293,6 +323,17 @@ export function getRecommendations(
       if (mid >= lo && mid <= hi) {
         score += W.priceFit;
         reasons.push("priced right for your budget");
+      }
+    }
+
+    // Age fit: a milestone-specific gift for their decade, or (for a child) a
+    // clearly age-appropriate item.
+    if (wantAge) {
+      const milestone = (MILESTONE_WORDS[wantAge] || []).some((w) => containsWord(haystack, w));
+      const kidMatch = isChildAge(wantAge) && KID_WORDS.some((w) => containsWord(haystack, w));
+      if (milestone || kidMatch) {
+        score += W.ageFit;
+        reasons.push("suits their age");
       }
     }
 
