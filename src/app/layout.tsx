@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, DM_Sans, Caveat } from "next/font/google";
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
 const cormorant = Cormorant_Garamond({
@@ -37,6 +38,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${dmSans.variable} ${cormorant.variable} ${caveat.variable} bg-background font-sans text-foreground antialiased selection:bg-accent selection:text-white`}>
         {children}
+        <Analytics />
       </body>
     </html>
   );
