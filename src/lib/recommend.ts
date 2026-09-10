@@ -161,6 +161,10 @@ const BUDGET_BANDS: Record<string, [number, number]> = {
 const BABY_WORDS = ["baby", "toddler", "infant", "newborn", "nursery", "onesie", "teether", "stroller", "preschool"];
 const KID_WORDS = [...BABY_WORDS, "kids", "kid", "children", "playset", "coloring", "crayon"];
 const ADULT_ONLY_WORDS = ["wine", "whiskey", "whisky", "beer", "vodka", "tequila", "bourbon", "cocktail", "liquor", "anniversary", "husband", "wife"];
+// Adult-targeted apparel/jewelry — inappropriate for a young child even though
+// it isn't "adult-only". Excluded for under-12 (but fine for teens, who wear
+// adult sizes).
+const ADULT_TARGETED_WORDS = ["men", "mens", "women", "womens", "adult", "boyfriend", "girlfriend", "dad", "father", "mom", "mother", "grandpa", "grandma", "grandfather", "grandmother", "papa", "nana"];
 const MILESTONE_WORDS: Record<string, string[]> = {
   "13-19": ["16th", "18th", "sweet sixteen", "teen"],
   "20s": ["21st", "21 years"],
@@ -169,6 +173,16 @@ const MILESTONE_WORDS: Record<string, string[]> = {
   "50+": ["50th", "60th", "70th", "80th", "50 years", "60 years", "retirement"],
 };
 const isChildAge = (a: string) => a === "under12" || a === "13-19";
+
+// A product tied to a SPECIFIC milestone age (e.g. Printerval's endless "57th
+// Birthday" shirts) should only show to the matching decade.
+const AGE_RANGES: Record<string, [number, number]> = {
+  under12: [0, 12], "13-19": [13, 19], "20s": [20, 29], "30s": [30, 39], "40s": [40, 49], "50+": [50, 120],
+};
+function milestoneAge(text: string): number | null {
+  const m = text.match(/\b(\d{1,3})\s*(?:st|nd|rd|th)?\s*(?:birthday|years?\s*old)\b/);
+  return m ? parseInt(m[1], 10) : null;
+}
 
 // A small, deterministic shuffle so equally-good gifts take turns across
 // quizzes instead of the same three winning forever on table order.
@@ -237,10 +251,16 @@ export function getRecommendations(
   const wantAge = (answers.ageGroup || "").toLowerCase();
   const ageFiltered = !wantAge ? genderedGifts : genderedGifts.filter(gift => {
     const hay = [gift.name, gift.description, ...(gift.tags || [])].filter(Boolean).join(" ").toLowerCase();
+    // Explicit milestone age must match the recipient's decade.
+    const ms = milestoneAge(hay);
+    const range = AGE_RANGES[wantAge];
+    if (ms != null && range && (ms < range[0] || ms > range[1])) return false;
     const hasBaby = BABY_WORDS.some(w => containsWord(hay, w));
     const hasKid = KID_WORDS.some(w => containsWord(hay, w));
     const hasAdultOnly = ADULT_ONLY_WORDS.some(w => containsWord(hay, w));
-    if (wantAge === "under12") return !hasAdultOnly;           // young child: no alcohol/partner gifts
+    const hasAdultTargeted = ADULT_TARGETED_WORDS.some(w => containsWord(hay, w));
+    // young child: no adult apparel/jewelry ("men's"/"women's"), alcohol, or partner gifts
+    if (wantAge === "under12") return !hasAdultOnly && !hasAdultTargeted;
     if (wantAge === "13-19") return !hasAdultOnly && !hasBaby; // teen: no alcohol, no baby items
     return !hasKid;                                            // adult (20s+): no children's items
   });
