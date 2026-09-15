@@ -4,6 +4,7 @@
 // never has to know a product came from Awin.
 
 import type { AwinRow } from "./awin";
+import type { CjRawProduct } from "./cj";
 import type { NormalizedProduct } from "./types";
 
 // Keyword → internal TAG. First match(es) win; a product can carry several tags.
@@ -51,6 +52,14 @@ const RECIPIENT_KEYWORDS: Record<string, string[]> = {
 const FEMALE = ["women", "woman", "womens", "her", "wife", "girlfriend", "ladies", "female", "girl", "mother", "mom"];
 const MALE = ["men", "man", "mens", "him", "his", "husband", "boyfriend", "male", "boy", "father", "dad", "guy"];
 
+// Some merchants' whole catalogue is one category that titles don't spell out
+// (a novel's title is its name, not "book"). Give those a default tag by
+// merchant so keyword-less items still match the right quiz interest.
+const MERCHANT_BASE_TAGS: Record<string, string[]> = {
+  "BOOKSAMILLION.COM": ["books & reading"],
+  GraphicAudio: ["books & reading"], // audio dramas / narrated books
+};
+
 // Word-boundary aware matcher. Single words match as whole words (so "men"
 // never matches inside "women"); multi-word phrases match as substrings.
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -74,6 +83,21 @@ function matchKeywords(haystack: string, compiled: [string, RegExp[]][]): string
   return out;
 }
 
+// Shared attribute inference from a product's text — used by EVERY network's
+// normalizer, so a CJ product is tagged exactly like an Awin one.
+export function deriveAttributes(hay: string) {
+  const isF = FEMALE_RX.some((r) => r.test(hay));
+  const isM = MALE_RX.some((r) => r.test(hay));
+  // If both (or neither) show up, it's not clearly gendered → unisex.
+  const gender = isF && !isM ? "female" : isM && !isF ? "male" : "unisex";
+  return {
+    tags: matchKeywords(hay, TAG_RX),
+    occasions: matchKeywords(hay, OCCASION_RX),
+    recipients: matchKeywords(hay, RECIPIENT_RX),
+    gender,
+  };
+}
+
 function parsePrice(row: AwinRow): number | null {
   const raw = row.search_price || row.store_price || "";
   const n = parseFloat(raw.replace(/[^0-9.]/g, ""));
@@ -93,10 +117,7 @@ export function normalizeAwin(row: AwinRow, feedId: string): NormalizedProduct |
   const description = (row.description || row.product_short_description || "").trim() || null;
   const hay = ` ${[title, category, description, row.brand_name].filter(Boolean).join(" ").toLowerCase()} `;
 
-  const isF = FEMALE_RX.some((r) => r.test(hay));
-  const isM = MALE_RX.some((r) => r.test(hay));
-  // If both (or neither) show up, it's not clearly gendered → unisex.
-  const gender = isF && !isM ? "female" : isM && !isF ? "male" : "unisex";
+  const { tags, occasions, recipients, gender } = deriveAttributes(hay);
 
   return {
     network: "awin",
@@ -110,12 +131,51 @@ export function normalizeAwin(row: AwinRow, feedId: string): NormalizedProduct |
     price,
     currency: row.currency || "USD",
     category,
-    tags: matchKeywords(hay, TAG_RX),
-    occasions: matchKeywords(hay, OCCASION_RX),
-    recipients: matchKeywords(hay, RECIPIENT_RX),
+    tags,
+    occasions,
+    recipients,
     gender,
     affiliate_link,
     in_stock: !/^(0|no|false|out)/i.test(row.in_stock || "1"),
+    raw: {},
+  };
+}
+
+// CJ Affiliate product → unified shape. Same tagging, gender, and gift-viability
+// gate as Awin; the tracked click URL is the affiliate link.
+export function normalizeCj(p: CjRawProduct): NormalizedProduct | null {
+  const title = p.title;
+  const affiliate_link = p.clickUrl;
+  const image_url = p.imageLink;
+  const price = p.price != null && p.price > 0 ? p.price : null;
+
+  if (!title || !affiliate_link || !image_url || price === null) return null;
+
+  const hay = ` ${[title, p.description, p.brand, p.advertiserName].filter(Boolean).join(" ").toLowerCase()} `;
+  const derived = deriveAttributes(hay);
+  // Merge any merchant-level base tag (e.g. a bookstore → books & reading).
+  const baseTags = MERCHANT_BASE_TAGS[p.advertiserName || ""] || [];
+  const tags = Array.from(new Set([...baseTags, ...derived.tags]));
+  const { occasions, recipients, gender } = derived;
+
+  return {
+    network: "cj",
+    network_product_id: p.id || affiliate_link,
+    merchant_id: p.advertiserId,
+    merchant_name: p.advertiserName,
+    feed_id: null,
+    title,
+    description: p.description ? p.description.slice(0, 1000) : null,
+    image_url,
+    price,
+    currency: p.currency || "USD",
+    category: null,
+    tags,
+    occasions,
+    recipients,
+    gender,
+    affiliate_link,
+    in_stock: true,
     raw: {},
   };
 }

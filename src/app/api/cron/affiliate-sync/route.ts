@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { syncAwin } from "@/lib/affiliate/sync";
+import { syncCj } from "@/lib/affiliate/sync-cj";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // downloads + per-product image checks take a while
@@ -21,10 +22,12 @@ export async function GET(req: Request) {
     }
   }
 
-  try {
-    const summary = await syncAwin();
-    return NextResponse.json(summary);
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message, stack: e?.stack?.split("\n").slice(0, 5) }, { status: 500 });
-  }
+  // Each network runs independently — one failing shouldn't stop the other.
+  const results: Record<string, any> = {};
+  try { results.awin = await syncAwin(); }
+  catch (e: any) { results.awin = { error: e?.message }; }
+  try { results.cj = await syncCj(); }
+  catch (e: any) { results.cj = { error: e?.message }; }
+
+  return NextResponse.json(results);
 }
