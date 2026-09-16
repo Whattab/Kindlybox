@@ -8,6 +8,9 @@ import { GiftImage } from "@/components/GiftImage";
 import { saveGiftToProfile } from "./actions";
 import { rankLabel, interestChips, pronounFor } from "@/lib/quiz-labels";
 import { GuidesForYou } from "@/components/GuidesForYou";
+import { DigitalGiftCallout } from "@/components/DigitalGiftCallout";
+import { suggestDigitalExtra } from "@/lib/digital-suggest";
+import { extrasEnabled } from "@/lib/extras";
 
 export default async function ResultsPage({
   params,
@@ -209,6 +212,12 @@ export default async function ResultsPage({
             );
           })}
         </div>
+
+        {/* KindlyBox's own high-margin, one-of-a-kind product — surfaced here
+            because the affiliate matcher never sees it. Gated on EXTRAS_ENABLED
+            so we never link to a disabled flow. */}
+        {extrasEnabled() && <DigitalGiftCallout suggestion={suggestDigitalExtra(session.answers)} />}
+
         {/* Matched gift guides — highest-intent moment, so they get a second
             thing to read rather than a dead end. Renders nothing until guides
             are published. */}
