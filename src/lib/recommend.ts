@@ -159,7 +159,7 @@ const BUDGET_BANDS: Record<string, [number, number]> = {
 // — and (b) lightly boost milestone-specific gifts. Neutral products (most of
 // the catalogue) always pass the filter.
 const BABY_WORDS = ["baby", "toddler", "infant", "newborn", "nursery", "onesie", "teether", "stroller", "preschool"];
-const KID_WORDS = [...BABY_WORDS, "kids", "kid", "children", "playset", "coloring", "crayon"];
+const KID_WORDS = [...BABY_WORDS, "kids", "kid", "children", "girl", "girls", "boy", "boys", "playset", "coloring", "crayon"];
 const ADULT_ONLY_WORDS = ["wine", "whiskey", "whisky", "beer", "vodka", "tequila", "bourbon", "cocktail", "liquor", "anniversary", "husband", "wife"];
 // Adult-targeted apparel/jewelry — inappropriate for a young child even though
 // it isn't "adult-only". Excluded for under-12 (but fine for teens, who wear
@@ -173,6 +173,9 @@ const MILESTONE_WORDS: Record<string, string[]> = {
   "50+": ["50th", "60th", "70th", "80th", "50 years", "60 years", "retirement"],
 };
 const isChildAge = (a: string) => a === "under12" || a === "13-19";
+
+// Never a fit for the quiz's celebratory occasions — excluded outright.
+const NEGATIVE_WORDS = ["sympathy", "funeral", "memorial", "condolence", "bereavement", "in loving memory"];
 
 // A product tied to a SPECIFIC milestone age (e.g. Printerval's endless "57th
 // Birthday" shirts) should only show to the matching decade.
@@ -247,9 +250,15 @@ export function getRecommendations(
     return true; // "unknown" or unset quiz gender → no gender filtering
   });
 
+  // Always drop sympathy/funeral items — they don't fit any celebratory occasion.
+  const occasionSafe = genderedGifts.filter(gift => {
+    const hay = [gift.name, gift.description].filter(Boolean).join(" ").toLowerCase();
+    return !NEGATIVE_WORDS.some(w => containsWord(hay, w));
+  });
+
   // Age filter: drop clear age mismatches. Most (neutral) products pass through.
   const wantAge = (answers.ageGroup || "").toLowerCase();
-  const ageFiltered = !wantAge ? genderedGifts : genderedGifts.filter(gift => {
+  const ageFiltered = !wantAge ? occasionSafe : occasionSafe.filter(gift => {
     const hay = [gift.name, gift.description, ...(gift.tags || [])].filter(Boolean).join(" ").toLowerCase();
     // Explicit milestone age must match the recipient's decade.
     const ms = milestoneAge(hay);
