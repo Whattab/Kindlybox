@@ -10,6 +10,12 @@ import type { NormalizedProduct } from "./types";
 const MAX_CJ = 4000;
 const UPSERT_BATCH = 500;
 
+// Merchants confirmed to have persistently broken/blocked images. BooksAMillion
+// serves its book covers with hotlink protection (403 from our domain), so its
+// products always render as blank cards — excluded until they fix it (or we add
+// a book merchant whose images actually load).
+const MERCHANT_BLOCKLIST = new Set<string>(["BOOKSAMILLION.COM"]);
+
 export interface CjSyncSummary {
   ran_at: string;
   network: string;
@@ -27,6 +33,7 @@ export async function syncCj(): Promise<CjSyncSummary> {
   const raw = await fetchJoinedShoppingProducts(MAX_CJ);
   const byId = new Map<string, NormalizedProduct>();
   for (const r of raw) {
+    if (MERCHANT_BLOCKLIST.has(r.advertiserName || "")) continue;
     const p = normalizeCj(r);
     if (p) byId.set(`${p.network}:${p.network_product_id}`, p);
   }
