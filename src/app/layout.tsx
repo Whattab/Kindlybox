@@ -36,6 +36,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* Impact.com website-ownership verification. Impact requires the token
+            on `value` (not the usual `content`), so it's rendered as raw HTML. */}
+        <meta name="impact-site-verification" value="27876e4b-eff9-4dcd-a73b-6ab418cb6137" />
+      </head>
       <body className={`${dmSans.variable} ${cormorant.variable} ${caveat.variable} bg-background font-sans text-foreground antialiased selection:bg-accent selection:text-white`}>
         {children}
         <Analytics />
