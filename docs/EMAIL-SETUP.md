@@ -69,6 +69,43 @@ on production unless `localhost` is in the redirect allow-list.
 
 ---
 
+## Deliverability (staying out of spam)
+
+Once SMTP works, mail is *delivered* — but a young sending domain often lands in
+**spam** until its reputation builds. Auth emails arriving in spam are a
+deliverability issue, not a delivery failure.
+
+**DNS (checked 2026-09):**
+
+| Record | Status |
+|---|---|
+| DKIM `resend._domainkey.kindlybox.com` | ✅ valid Resend key |
+| SPF `send.kindlybox.com` | ✅ `v=spf1 include:amazonses.com ~all` (Resend sends via SES) |
+| DMARC `_dmarc.kindlybox.com` | ⚠️ **two records published — must be one** |
+
+**Fix the duplicate DMARC (highest impact).** When a domain publishes more than
+one DMARC record, receivers ignore DMARC entirely — so it's as if you have none.
+In Hostinger → DNS, delete the bare record and keep the complete one:
+
+- ❌ delete: `v=DMARC1; p=none`
+- ✅ keep: `v=DMARC1; p=none; rua=mailto:dmarc@kindlybox.com; adkim=r; aspf=r`
+
+With DKIM + SPF already aligned, a single DMARC record gives Gmail a clean pass.
+
+**Reputation moves:**
+- In Gmail, open the spam email → **Not spam**, and add the sender
+  (`noreply@kindlybox.com`) to Contacts. Trains your own account immediately.
+- Reputation builds with volume + engagement over days/weeks — early spam
+  placement usually self-corrects once the domain has a track record.
+
+**Branded templates** (plain, link-only emails look phishy and get filtered).
+Paste these into Supabase → Authentication → Email Templates:
+- Reset Password → [`email-templates/reset-password.html`](email-templates/reset-password.html)
+- Confirm signup → [`email-templates/confirm-signup.html`](email-templates/confirm-signup.html)
+
+Both use Supabase's `{{ .ConfirmationURL }}` variable and render in Gmail/Outlook/
+Apple Mail (table layout + inline CSS).
+
 ## Email confirmation on signup
 
 Currently **off** (`enable_confirmations = false`). Turning it on means a new user
