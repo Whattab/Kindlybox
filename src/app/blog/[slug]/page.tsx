@@ -222,6 +222,14 @@ export default async function ArticlePage({ params }: { params: { slug: string }
             </div>
           )}
 
+          {products.length > 0 && (
+            <p className="not-prose mb-8 rounded-xl border border-[#E7DDCA] bg-[#F8F3E5] px-4 py-3 text-sm leading-relaxed text-gray-600">
+              <strong className="text-gray-700">Affiliate disclosure:</strong> Some links in this guide
+              are affiliate links. If you buy through them, KindlyBox may earn a small commission — at no
+              extra cost to you.
+            </p>
+          )}
+
           <Markdown>{before}</Markdown>
           <ProductCards products={products} />
           {after.trim() && <Markdown>{after}</Markdown>}

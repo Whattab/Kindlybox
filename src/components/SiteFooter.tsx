@@ -29,7 +29,8 @@ export function SiteFooter() {
             <ul className="space-y-3">
               <li><Link href="/about" className="text-gray-500 hover:text-accent">About Us</Link></li>
               <li><Link href="/contact" className="text-gray-500 hover:text-accent">Contact</Link></li>
-              <li><a href="#" className="text-gray-500 hover:text-accent">Privacy Policy</a></li>
+              <li><Link href="/privacy" className="text-gray-500 hover:text-accent">Privacy Policy</Link></li>
+              <li><Link href="/terms" className="text-gray-500 hover:text-accent">Terms of Service</Link></li>
             </ul>
           </div>
         </div>
