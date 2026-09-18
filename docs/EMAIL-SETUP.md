@@ -103,8 +103,20 @@ Paste these into Supabase → Authentication → Email Templates:
 - Reset Password → [`email-templates/reset-password.html`](email-templates/reset-password.html)
 - Confirm signup → [`email-templates/confirm-signup.html`](email-templates/confirm-signup.html)
 
-Both use Supabase's `{{ .ConfirmationURL }}` variable and render in Gmail/Outlook/
-Apple Mail (table layout + inline CSS).
+The two emails verify through **different** routes, so their links differ — paste
+each file into its matching template, don't swap them:
+
+| Email | App route | Link variable |
+|---|---|---|
+| Reset Password | `/auth/confirm` (token_hash / OTP) | `{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=recovery` |
+| Confirm signup | `/auth/callback` (code / PKCE) | `{{ .ConfirmationURL }}` |
+
+> Using the default `{{ .ConfirmationURL }}` for **reset** produces an
+> "Authentication Error" page: it routes through Supabase's verify endpoint and
+> reaches `/auth/confirm` with no token to check. The reset template is built for
+> the token_hash flow instead.
+
+Both render in Gmail/Outlook/Apple Mail (table layout + inline CSS).
 
 ## Email confirmation on signup
 
