@@ -52,13 +52,47 @@ const RECIPIENT_KEYWORDS: Record<string, string[]> = {
 const FEMALE = ["women", "woman", "womens", "her", "wife", "girlfriend", "ladies", "female", "girl", "mother", "mom"];
 const MALE = ["men", "man", "mens", "him", "his", "husband", "boyfriend", "male", "boy", "father", "dad", "guy"];
 
-// Some merchants' whole catalogue is one category that titles don't spell out
-// (a novel's title is its name, not "book"). Give those a default tag by
-// merchant so keyword-less items still match the right quiz interest.
-const MERCHANT_BASE_TAGS: Record<string, string[]> = {
-  "BOOKSAMILLION.COM": ["books & reading"],
-  GraphicAudio: ["books & reading"], // audio dramas / narrated books
+// Per-merchant tag policy. We carry only a handful of merchants, and keyword
+// tagging on their product TITLES is noisy — a florist's "Best Pet Parent"
+// bouquet is not a pet product, a "Smart Bird Feeder" is not tech. So each known
+// merchant declares:
+//   base  — tags applied to EVERY one of its products (also fixes keyword-less
+//           items, e.g. a jewellery SKU whose title never says "jewelry")
+//   allow — if set, keyword-derived tags survive ONLY when in this set; anything
+//           else the title's keywords suggest is dropped.
+// Merchants with no profile keep the raw keyword tags (they're genuinely mixed).
+interface MerchantProfile {
+  base?: string[];
+  allow?: string[];
+}
+const MERCHANT_PROFILES: Record<string, MerchantProfile> = {
+  // Personalised-gift catalogue — genuinely mixed, so no forced base; just fence
+  // the keyword tags to the categories it actually sells.
+  "Lucasgift - US": { allow: ["fashion & accessories", "home decor", "pets", "art & crafts"] },
+  // Print-on-demand apparel: every item is fashion, but a themed shirt keeps its
+  // theme (a gaming tee → gaming) so it can still match that interest. Physical-
+  // object categories a shirt can't be (home decor, kitchen, tech, travel) are
+  // excluded by omission from `allow`.
+  Printerval: {
+    base: ["fashion & accessories"],
+    allow: ["fashion & accessories", "gaming", "pets", "fitness & wellness", "music & instruments", "movies & tv", "art & crafts", "outdoor/ adventure", "gardening", "books & reading"],
+  },
+  "Flowers Fast.com-Send Flowers Same Day Delivery": { base: ["home decor"], allow: ["home decor", "gardening"] },
+  BBBGEM: { base: ["fashion & accessories"], allow: ["fashion & accessories"] },
+  "Watches Of USA": { base: ["fashion & accessories"], allow: ["fashion & accessories"] },
+  "LOOMY Home": { base: ["home decor"], allow: ["home decor", "art & crafts"] },
+  PawFurEver: { base: ["pets"], allow: ["pets"] },
+  "Mosaic Weighted Blankets": { base: ["fitness & wellness", "home decor"], allow: ["fitness & wellness", "home decor"] },
+  GraphicAudio: { base: ["books & reading"], allow: ["books & reading"] }, // audio dramas / narrated books
+  "Bond Touch": { base: ["tech & gadgets", "fashion & accessories"], allow: ["tech & gadgets", "fashion & accessories"] },
 };
+
+function applyMerchantProfile(keywordTags: string[], merchant?: string | null): string[] {
+  const prof = merchant ? MERCHANT_PROFILES[merchant] : undefined;
+  if (!prof) return keywordTags;
+  const kept = prof.allow ? keywordTags.filter((t) => prof.allow!.includes(t)) : keywordTags;
+  return Array.from(new Set([...(prof.base ?? []), ...kept]));
+}
 
 // Word-boundary aware matcher. Single words match as whole words (so "men"
 // never matches inside "women"); multi-word phrases match as substrings.
@@ -85,13 +119,13 @@ function matchKeywords(haystack: string, compiled: [string, RegExp[]][]): string
 
 // Shared attribute inference from a product's text — used by EVERY network's
 // normalizer, so a CJ product is tagged exactly like an Awin one.
-export function deriveAttributes(hay: string) {
+export function deriveAttributes(hay: string, merchant?: string | null) {
   const isF = FEMALE_RX.some((r) => r.test(hay));
   const isM = MALE_RX.some((r) => r.test(hay));
   // If both (or neither) show up, it's not clearly gendered → unisex.
   const gender = isF && !isM ? "female" : isM && !isF ? "male" : "unisex";
   return {
-    tags: matchKeywords(hay, TAG_RX),
+    tags: applyMerchantProfile(matchKeywords(hay, TAG_RX), merchant),
     occasions: matchKeywords(hay, OCCASION_RX),
     recipients: matchKeywords(hay, RECIPIENT_RX),
     gender,
@@ -117,7 +151,7 @@ export function normalizeAwin(row: AwinRow, feedId: string): NormalizedProduct |
   const description = (row.description || row.product_short_description || "").trim() || null;
   const hay = ` ${[title, category, description, row.brand_name].filter(Boolean).join(" ").toLowerCase()} `;
 
-  const { tags, occasions, recipients, gender } = deriveAttributes(hay);
+  const { tags, occasions, recipients, gender } = deriveAttributes(hay, row.merchant_name);
 
   return {
     network: "awin",
@@ -152,11 +186,7 @@ export function normalizeCj(p: CjRawProduct): NormalizedProduct | null {
   if (!title || !affiliate_link || !image_url || price === null) return null;
 
   const hay = ` ${[title, p.description, p.brand, p.advertiserName].filter(Boolean).join(" ").toLowerCase()} `;
-  const derived = deriveAttributes(hay);
-  // Merge any merchant-level base tag (e.g. a bookstore → books & reading).
-  const baseTags = MERCHANT_BASE_TAGS[p.advertiserName || ""] || [];
-  const tags = Array.from(new Set([...baseTags, ...derived.tags]));
-  const { occasions, recipients, gender } = derived;
+  const { tags, occasions, recipients, gender } = deriveAttributes(hay, p.advertiserName);
 
   return {
     network: "cj",
