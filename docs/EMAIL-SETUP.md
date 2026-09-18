@@ -108,8 +108,12 @@ each file into its matching template, don't swap them:
 
 | Email | App route | Link variable |
 |---|---|---|
-| Reset Password | `/auth/confirm` (token_hash / OTP) | `{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=recovery` |
+| Reset Password | `/auth/confirm` (token_hash / OTP) | `{{ .RedirectTo }}&amp;token_hash={{ .TokenHash }}&amp;type=recovery` |
 | Confirm signup | `/auth/callback` (code / PKCE) | `{{ .ConfirmationURL }}` |
+
+> Write the query separators as `&amp;`, not raw `&`. Gmail mangles an unescaped
+> `&` in an href, so the clicked button loses the token (copy-pasting the URL
+> still works — that's the tell).
 
 > Using the default `{{ .ConfirmationURL }}` for **reset** produces an
 > "Authentication Error" page: it routes through Supabase's verify endpoint and
