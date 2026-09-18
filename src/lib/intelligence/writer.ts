@@ -25,7 +25,9 @@ const MAX_PRODUCTS = 8;
 export const PRODUCTS_TOKEN = "{{products}}";
 
 export interface ProductBlock {
-  gift_id: string;
+  gift_id: string;                 // stable id for the block: a products.id (or a legacy gifts.id)
+  source?: "product" | "gift";     // where it came from; absent on legacy blocks means gift
+  affiliate_link?: string | null;  // affiliate products link out directly; gifts use /go/<slug>
   name: string;
   slug: string | null;
   image_url: string | null;
@@ -100,9 +102,12 @@ const priceLabel = (g: { price_min: number | null; price_max: number | null }) =
 
 const GIFT_COLS = "id, name, description, slug, image_url, price_min, price_max, tags, occasions, recipients";
 
+// Curated-catalogue gift → block. Curated gifts link through /go/<slug>.
 export function toProductBlock(g: GiftRow): ProductBlock {
   return {
     gift_id: g.id,
+    source: "gift",
+    affiliate_link: null,
     name: g.name,
     slug: g.slug,
     image_url: g.image_url,
@@ -113,58 +118,91 @@ export function toProductBlock(g: GiftRow): ProductBlock {
   };
 }
 
-// Catalogue search behind the editor's product picker.
-export async function searchCatalogue(query: string, limit = 12): Promise<ProductBlock[]> {
-  const admin = createServiceClient();
-  const q = query.trim();
-  let req = admin.from("gifts").select(GIFT_COLS).eq("active", true).limit(limit);
-  if (q) req = req.or(`name.ilike.%${q}%,description.ilike.%${q}%`);
-  const { data } = await req;
-  return ((data ?? []) as GiftRow[]).map(toProductBlock);
+// Affiliate products (Awin/CJ/…) are the live catalogue now — the curated
+// `gifts` are deactivated. Blocks built from them link straight to the tracked
+// affiliate_link (rel="sponsored nofollow"), not /go/<slug>.
+interface ProductRow {
+  id: string; title: string; description: string | null; image_url: string | null;
+  price: number | null; tags: string[] | null; occasions: string[] | null;
+  recipients: string[] | null; affiliate_link: string;
+}
+const PRODUCT_COLS = "id, title, description, image_url, price, tags, occasions, recipients, affiliate_link";
+
+export function productToBlock(p: ProductRow): ProductBlock {
+  return {
+    gift_id: p.id,
+    source: "product",
+    affiliate_link: p.affiliate_link,
+    name: p.title,
+    slug: null,
+    image_url: p.image_url,
+    price_min: p.price,
+    price_max: p.price,
+    heading: p.title,
+    blurb: p.description || "A hand-picked option from the KindlyBox catalogue.",
+  };
 }
 
-// Products for the article: the opportunity's own picks first, then a keyword
-// top-up so a thin opportunity still yields a useful guide.
-async function collectProducts(opp: any): Promise<GiftRow[]> {
+// Catalogue search behind the editor's product picker — over the live affiliate
+// products (only ones with an image, so cards never render blank).
+export async function searchCatalogue(query: string, limit = 12): Promise<ProductBlock[]> {
+  const admin = createServiceClient();
+  const q = query.trim().replace(/[%,]/g, " ").trim();
+  let req = admin.from("products").select(PRODUCT_COLS).eq("active", true).not("image_url", "is", null).limit(limit);
+  if (q) req = req.ilike("title", `%${q}%`);
+  const { data } = await req;
+  return ((data ?? []) as ProductRow[]).map(productToBlock);
+}
+
+// Products for the article, ranked by how well the live affiliate catalogue
+// matches the opportunity's keyword/topic. Only pictured, active products, so
+// every card renders.
+async function collectProducts(opp: any): Promise<ProductBlock[]> {
   const admin = createServiceClient();
 
-  const ids = ((opp.recommended_products ?? []) as { gift_id: string }[]).map((p) => p.gift_id).filter(Boolean);
-  let picked: GiftRow[] = [];
-  if (ids.length > 0) {
-    const { data } = await admin.from("gifts").select(GIFT_COLS).in("id", ids).eq("active", true);
-    // Preserve the opportunity's ordering (it ranked affiliate-linked products first).
-    const byId = new Map((data ?? []).map((g: any) => [g.id as string, g as GiftRow]));
-    picked = ids.map((id) => byId.get(id)).filter(Boolean) as GiftRow[];
-  }
+  const stop = new Set(["for", "best", "gift", "gifts", "ideas", "idea", "the", "and", "your", "top", "under", "with"]);
+  const terms = String(opp.primary_keyword || opp.topic || "")
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.replace(/[^a-z0-9]/g, ""))
+    .filter((t) => t.length > 2 && !stop.has(t));
 
-  if (picked.length < MAX_PRODUCTS) {
-    // Top up by keyword over the live catalogue.
-    const stop = new Set(["for", "best", "gift", "gifts", "ideas", "idea", "the", "and", "your", "top"]);
-    const terms = String(opp.primary_keyword || opp.topic || "")
-      .toLowerCase()
-      .split(/\s+/)
-      .filter((t) => t.length > 2 && !stop.has(t));
-    const { data: all } = await admin.from("gifts").select(GIFT_COLS).eq("active", true);
-    const have = new Set(picked.map((g) => g.id));
-    for (const g of (all ?? []) as GiftRow[]) {
-      if (picked.length >= MAX_PRODUCTS) break;
-      if (have.has(g.id)) continue;
-      const hay = [g.name, g.description, (g.tags || []).join(" "), (g.occasions || []).join(" "), (g.recipients || []).join(" ")]
-        .join(" ")
-        .toLowerCase();
-      if (terms.length === 0 || terms.some((t) => hay.includes(t))) {
-        picked.push(g);
-        have.add(g.id);
-      }
+  const base = () => admin.from("products").select(PRODUCT_COLS).eq("active", true).not("image_url", "is", null);
+
+  const pool: ProductRow[] = [];
+  const seen = new Set<string>();
+  const add = (rows: ProductRow[] | null) => {
+    for (const r of rows ?? []) {
+      if (seen.has(r.id)) continue;
+      seen.add(r.id);
+      pool.push(r);
     }
+  };
+
+  // 1. Title keyword match — the strongest relevance signal we have.
+  if (terms.length > 0) {
+    const { data } = await base().or(terms.map((t) => `title.ilike.%${t}%`).join(",")).limit(120);
+    add(data as ProductRow[] | null);
   }
 
-  // A gift with no slug can't be linked through /go/, so its card would have no
-  // button. Keep those (the copy is still useful) but push them to the bottom
-  // so the article leads with gifts the reader can actually buy.
-  const linkable = picked.filter((g) => g.slug);
-  const unlinkable = picked.filter((g) => !g.slug);
-  return [...linkable, ...unlinkable].slice(0, MAX_PRODUCTS);
+  // 2. Rank by how many topic terms each product touches (title/tags/occasions/
+  //    recipients), most-relevant first.
+  const score = (r: ProductRow) => {
+    const hay = [r.title, (r.tags || []).join(" "), (r.occasions || []).join(" "), (r.recipients || []).join(" ")]
+      .join(" ")
+      .toLowerCase();
+    return terms.reduce((n, t) => (hay.includes(t) ? n + 1 : n), 0);
+  };
+  pool.sort((a, b) => score(b) - score(a));
+
+  // 3. Thin topic (or no keyword hits)? Top up with any active, pictured product
+  //    so the guide still has enough cards to be worth publishing.
+  if (pool.length < MAX_PRODUCTS) {
+    const { data } = await base().limit(MAX_PRODUCTS * 2);
+    add(data as ProductRow[] | null);
+  }
+
+  return pool.slice(0, MAX_PRODUCTS).map(productToBlock);
 }
 
 // Published guides the new article can link to. Internal links are what make a
@@ -210,19 +248,18 @@ export async function generateOutline(opportunityId: string): Promise<OutlinePla
   if (error) throw new Error(error.message);
   if (!opp) throw new Error("Opportunity not found");
 
-  const gifts = await collectProducts(opp);
-  if (gifts.length === 0) {
-    throw new Error("No active catalogue products match this topic yet — add matching gifts first.");
+  const blocks = await collectProducts(opp);
+  if (blocks.length === 0) {
+    throw new Error("No active catalogue products match this topic yet — add matching affiliate products first.");
   }
   const guides = await publishedGuides();
-  const blocks = gifts.map(toProductBlock);
   const title = opp.suggested_title || opp.topic;
 
   // Templated plan — also the fallback if the model is unavailable.
   let plan: Omit<OutlinePlan, "slug"> = {
     title,
     meta_description: String(opp.why_now || title).slice(0, 155),
-    excerpt: `${gifts.length} hand-picked gift ideas from the KindlyBox catalogue.`,
+    excerpt: `${blocks.length} hand-picked gift ideas from the KindlyBox catalogue.`,
     content_type: opp.content_type || "gift_guide",
     primary_keyword: opp.primary_keyword ?? null,
     secondary_keywords: opp.secondary_keywords ?? [],
@@ -244,8 +281,8 @@ export async function generateOutline(opportunityId: string): Promise<OutlinePla
   const model = callModel(1600);
   if (model) {
     try {
-      const productList = gifts
-        .map((g, i) => `${i + 1}. id: ${g.id} | name: "${g.name}" | price: ${priceLabel(g) || "n/a"} | notes: ${(g.description || "").slice(0, 140)}`)
+      const productList = blocks
+        .map((b, i) => `${i + 1}. id: ${b.gift_id} | name: "${b.name}" | price: ${priceLabel(b) || "n/a"} | notes: ${(b.blurb || "").slice(0, 140)}`)
         .join("\n");
       const guideList = guides.length
         ? guides.map((g) => `- /blog/${g.slug} — "${g.title}"`).join("\n")

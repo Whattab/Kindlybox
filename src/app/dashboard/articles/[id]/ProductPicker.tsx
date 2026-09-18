@@ -58,8 +58,12 @@ export function ProductPicker({
                   <Link href={`/go/${b.slug}`} target="_blank" className="text-xs text-gray-400 hover:text-accent inline-flex items-center gap-1 mr-1">
                     <ExternalLink className="w-3.5 h-3.5" /> /go/{b.slug}
                   </Link>
+                ) : b.affiliate_link ? (
+                  <a href={b.affiliate_link} target="_blank" rel="nofollow sponsored noopener noreferrer" className="text-xs text-gray-400 hover:text-accent inline-flex items-center gap-1 mr-1" title="Affiliate link">
+                    <ExternalLink className="w-3.5 h-3.5" /> Affiliate link
+                  </a>
                 ) : (
-                  <span className="text-xs text-amber-600 inline-flex items-center gap-1 mr-1" title="This gift has no slug in the catalogue, so its card can't link anywhere">
+                  <span className="text-xs text-amber-600 inline-flex items-center gap-1 mr-1" title="This product has no link, so its card can't link anywhere">
                     <AlertTriangle className="w-3.5 h-3.5" /> No link
                   </span>
                 )}
@@ -137,7 +141,7 @@ export function ProductPicker({
                   <p className="text-xs text-gray-400">
                     {r.price_min != null ? `$${r.price_min}` : "—"}
                     {r.price_max != null && r.price_max !== r.price_min ? ` – $${r.price_max}` : ""}
-                    {!r.slug && " · no link"}
+                    {!r.slug && !r.affiliate_link && " · no link"}
                   </p>
                 </div>
                 <button

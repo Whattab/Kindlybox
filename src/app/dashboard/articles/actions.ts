@@ -209,16 +209,19 @@ async function resolveProducts(formData: FormData, current: ProductBlock[]): Pro
   const missing = ids.filter((id) => !byId.has(id));
   if (missing.length > 0) {
     const admin = createServiceClient();
+    // Newly added ids are affiliate products.id — resolve them from the live
+    // catalogue and link out through the tracked affiliate_link.
     const { data } = await admin
-      .from("gifts")
-      .select("id, name, description, slug, image_url, price_min, price_max")
+      .from("products")
+      .select("id, title, description, image_url, price, affiliate_link")
       .in("id", missing);
-    for (const g of (data ?? []) as any[]) {
-      byId.set(g.id, {
-        gift_id: g.id, name: g.name, slug: g.slug, image_url: g.image_url,
-        price_min: g.price_min, price_max: g.price_max,
-        heading: g.name,
-        blurb: g.description || "A thoughtful pick from the KindlyBox catalogue.",
+    for (const p of (data ?? []) as any[]) {
+      byId.set(p.id, {
+        gift_id: p.id, source: "product", affiliate_link: p.affiliate_link,
+        name: p.title, slug: null, image_url: p.image_url,
+        price_min: p.price, price_max: p.price,
+        heading: p.title,
+        blurb: p.description || "A hand-picked option from the KindlyBox catalogue.",
       });
     }
   }

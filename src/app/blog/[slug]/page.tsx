@@ -7,7 +7,21 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { GiftImage } from "@/components/GiftImage";
 import { Markdown } from "@/components/Markdown";
 import { PRODUCTS_TOKEN, extractFaq, type ProductBlock } from "@/lib/intelligence/writer";
+import { DigitalGiftCallout } from "@/components/DigitalGiftCallout";
+import { extrasEnabled } from "@/lib/extras";
 import { ArrowRight, ArrowLeft, Sparkles, BookOpen } from "lucide-react";
+
+// KindlyBox's own one-of-a-kind gift, surfaced in every guide — the affiliate
+// list can't include it, so the article is where readers discover it.
+const ARTICLE_DIGITAL_GIFT = {
+  service: "bundle" as const,
+  name: "Song + Card Bundle",
+  price: 25,
+  href: "/extras/bundle",
+  headline: "Give something they can't buy from this list",
+  blurb:
+    "Before you pick from the guide above — KindlyBox also makes one-of-a-kind gifts: a custom song written around your story, paired with a matching card in your own words.",
+};
 
 export const dynamic = "force-dynamic";
 
@@ -108,16 +122,22 @@ function ProductCards({ products }: { products: ProductBlock[] }) {
 
           <div className="mt-5 pt-4 border-t border-dashed border-gray-200 flex items-center justify-between gap-3 flex-wrap">
             <div className="font-semibold text-primary text-lg">{priceLabel(p) ?? "See price"}</div>
-            {p.slug && (
-              <Link
-                href={`/go/${p.slug}`}
-                target="_blank"
-                rel="nofollow sponsored"
-                className="inline-flex items-center gap-1.5 bg-primary text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-primary/90 transition-all shadow-md"
-              >
-                View this gift <ArrowRight className="w-4 h-4" />
-              </Link>
-            )}
+            {(() => {
+              // Affiliate products link straight to their tracked link; curated
+              // gifts go through /go/<slug>. No link either way → no button.
+              const href = p.affiliate_link || (p.slug ? `/go/${p.slug}` : null);
+              if (!href) return null;
+              return (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="nofollow sponsored noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 bg-primary text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-primary/90 transition-all shadow-md"
+                >
+                  View this gift <ArrowRight className="w-4 h-4" />
+                </a>
+              );
+            })()}
           </div>
         </div>
       ))}
@@ -205,6 +225,8 @@ export default async function ArticlePage({ params }: { params: { slug: string }
           <Markdown>{before}</Markdown>
           <ProductCards products={products} />
           {after.trim() && <Markdown>{after}</Markdown>}
+
+          {extrasEnabled() && <DigitalGiftCallout suggestion={ARTICLE_DIGITAL_GIFT} />}
 
           {/* Related guides — internal links, generated even when the writer
               didn't work any into the prose. */}
