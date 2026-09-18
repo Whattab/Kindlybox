@@ -10,11 +10,14 @@ import type { NormalizedProduct } from "./types";
 const MAX_CJ = 4000;
 const UPSERT_BATCH = 500;
 
-// Merchants confirmed to have persistently broken/blocked images. BooksAMillion
-// serves its book covers with hotlink protection (403 from our domain), so its
-// products always render as blank cards — excluded until they fix it (or we add
-// a book merchant whose images actually load).
-const MERCHANT_BLOCKLIST = new Set<string>(["BOOKSAMILLION.COM"]);
+// Merchants we don't sync, by advertiserName:
+//  - BOOKSAMILLION.COM: book covers are hotlink-protected (403 from our domain),
+//    so every card renders blank — excluded until they fix it or we add a book
+//    merchant whose images load.
+//  - Abracadabra NYC: costumes, theatrical props (incl. toy weapons) and party
+//    items. Off-brand for a gift-recommendation quiz and not safe to auto-
+//    recommend unvetted, so excluded at the source.
+const MERCHANT_BLOCKLIST = new Set<string>(["BOOKSAMILLION.COM", "Abracadabra NYC"]);
 
 export interface CjSyncSummary {
   ran_at: string;
