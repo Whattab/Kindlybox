@@ -8,7 +8,7 @@ export const metadata = {
 };
 
 const EFFECTIVE = "September 18, 2026";
-const SUPPORT_EMAIL = "Kindlyboxllc@gmail.com";
+const SUPPORT_EMAIL = "info@kindlybox.com";
 
 export default function TermsPage() {
   return (
@@ -106,8 +106,8 @@ export default function TermsPage() {
               <h2 className="font-serif text-2xl font-bold text-primary mb-3">Changes &amp; governing law</h2>
               <p>
                 We may update these Terms from time to time; continued use of the Site means you accept the
-                updated Terms. These Terms are governed by the laws of the State of [your state], without
-                regard to conflict-of-laws rules.
+                updated Terms. These Terms are governed by the applicable laws of the United States,
+                without regard to conflict-of-laws rules.
               </p>
             </section>
 

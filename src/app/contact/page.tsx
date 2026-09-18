@@ -8,8 +8,7 @@ export const metadata = {
   description: "Get in touch with the KindlyBox support team.",
 };
 
-// Temporary support inbox until a branded address is set up.
-const SUPPORT_EMAIL = "Kindlyboxllc@gmail.com";
+const SUPPORT_EMAIL = "info@kindlybox.com";
 
 export default function ContactPage() {
   return (

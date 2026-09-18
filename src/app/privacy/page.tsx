@@ -9,7 +9,7 @@ export const metadata = {
 
 // Effective date — update whenever the policy materially changes.
 const EFFECTIVE = "September 18, 2026";
-const SUPPORT_EMAIL = "Kindlyboxllc@gmail.com";
+const SUPPORT_EMAIL = "info@kindlybox.com";
 
 export default function PrivacyPage() {
   return (
