@@ -145,7 +145,7 @@ export default function PrivacyPage() {
                 or visit our <Link href="/contact" className="font-semibold text-accent hover:underline">Contact page</Link>.
               </p>
               <p className="mt-3 text-sm text-gray-400">
-                KindlyBox LLC · [Add your registered business mailing address here]
+                KindlyBox LLC · info@kindlybox.com
               </p>
             </section>
           </div>
