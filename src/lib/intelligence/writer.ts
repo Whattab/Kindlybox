@@ -124,9 +124,9 @@ export function toProductBlock(g: GiftRow): ProductBlock {
 interface ProductRow {
   id: string; title: string; description: string | null; image_url: string | null;
   price: number | null; tags: string[] | null; occasions: string[] | null;
-  recipients: string[] | null; affiliate_link: string;
+  recipients: string[] | null; affiliate_link: string; merchant_name: string | null;
 }
-const PRODUCT_COLS = "id, title, description, image_url, price, tags, occasions, recipients, affiliate_link";
+const PRODUCT_COLS = "id, title, description, image_url, price, tags, occasions, recipients, affiliate_link, merchant_name";
 
 export function productToBlock(p: ProductRow): ProductBlock {
   return {
@@ -154,20 +154,93 @@ export async function searchCatalogue(query: string, limit = 12): Promise<Produc
   return ((data ?? []) as ProductRow[]).map(productToBlock);
 }
 
-// Products for the article, ranked by how well the live affiliate catalogue
-// matches the opportunity's keyword/topic. Only pictured, active products, so
-// every card renders.
+// Maps a category word in a topic to one of our internal tags.
+const TOPIC_TAG: Record<string, string> = {
+  tech: "tech & gadgets", gadget: "tech & gadgets", gadgets: "tech & gadgets",
+  kitchen: "home & kitchen", cooking: "home & kitchen",
+  book: "books & reading", books: "books & reading", reading: "books & reading",
+  fashion: "fashion & accessories", jewelry: "fashion & accessories", jewellery: "fashion & accessories", watch: "fashion & accessories", accessories: "fashion & accessories",
+  decor: "home decor",
+  fitness: "fitness & wellness", wellness: "fitness & wellness", spa: "fitness & wellness",
+  garden: "gardening", gardening: "gardening",
+  pet: "pets", pets: "pets",
+  art: "art & crafts", craft: "art & crafts", crafts: "art & crafts",
+  music: "music & instruments",
+  gaming: "gaming", gamer: "gaming",
+  outdoor: "outdoor/ adventure", camping: "outdoor/ adventure",
+  movie: "movies & tv", movies: "movies & tv",
+  travel: "travel",
+};
+
+// Pulls structured filters out of a topic title so the matcher can query the
+// catalogue's real columns (price, gender, recipients, occasions, tags) instead
+// of guessing from the title text alone.
+function deriveTopicFilters(text: string) {
+  const t = ` ${text.toLowerCase()} `;
+  const has = (re: RegExp) => re.test(t);
+
+  const m = text.match(/under\s*\$?\s*(\d{1,4})/i) || text.match(/\$\s*(\d{1,4})/);
+  const priceMax = m ? parseInt(m[1], 10) : null;
+
+  const female = has(/\b(her|hers|women|woman|womens|wife|girlfriend|girl|girls|ladies|female|mom|mother|grandma)\b/);
+  const male = has(/\b(him|his|men|man|mens|husband|boyfriend|boy|boys|male|dad|father|grandpa)\b/);
+  const gender = female && !male ? "female" : male && !female ? "male" : null;
+
+  const recipients = new Set<string>();
+  if (has(/\b(mom|mother|dad|father|parent|parents|grandma|grandpa|grandparents?)\b/)) recipients.add("parent");
+  if (has(/\b(her|hers|women|woman|wife|girlfriend|sister|mom|mother)\b/)) recipients.add("her");
+  if (has(/\b(him|his|men|man|husband|boyfriend|brother|dad|father)\b/)) recipients.add("him");
+  if (has(/\b(teen|teens|teenager|teenagers|kid|kids|child|children)\b/)) recipients.add("child");
+
+  const occasions = new Set<string>();
+  if (has(/\bbirthday/)) occasions.add("birthday");
+  if (has(/\bvalentine/)) occasions.add("valentine's day");
+  if (has(/\banniversary/)) occasions.add("anniversary");
+  if (has(/\b(wedding|bridal|bride|groom)/)) occasions.add("wedding");
+  if (has(/\bgraduat/)) occasions.add("graduation");
+  if (has(/\b(retire|promotion)/)) occasions.add("promotion/retirement");
+  if (has(/\bmother'?s day/)) occasions.add("mother's day");
+  if (has(/\bfather'?s day/)) occasions.add("father's day");
+  if (has(/\b(baby|newborn|new parent|nursery)/)) occasions.add("baby shower");
+  if (has(/\b(housewarming|new home)/)) occasions.add("house warming");
+
+  const tags = new Set<string>();
+  for (const [word, tag] of Object.entries(TOPIC_TAG)) if (has(new RegExp(`\\b${word}\\b`))) tags.add(tag);
+
+  // Generic words that would drag in unrelated products if used as title
+  // keywords (e.g. "day" matching "Father's Day", "love" matching "Dog Lover").
+  const stop = new Set([
+    "for", "best", "gift", "gifts", "ideas", "idea", "the", "and", "your", "top", "under", "with", "who", "have",
+    "people", "everything", "give", "day", "days", "love", "kind", "kinds", "every", "everyone", "thoughtful",
+    "perfect", "present", "presents", "find", "amazing", "picks", "pick", "list", "occasion", "occasions", "type",
+    "types", "great", "cool", "unique", "awesome", "special", "actually", "use", "them", "they", "every", "any", "new",
+  ]);
+  const terms = text.toLowerCase().split(/\s+/).map((w) => w.replace(/[^a-z0-9]/g, "")).filter((w) => w.length > 2 && !stop.has(w));
+
+  return { priceMax, gender, recipients: Array.from(recipients), occasions: Array.from(occasions), tags: Array.from(tags), terms };
+}
+
+// Off-brand / controversial merchandise (mostly print-on-demand slogans) we
+// never want to auto-feature in a guide: political figures & slogans (any side),
+// anti-vax, weapons, drugs, and profanity/adult. Human editors can still add a
+// product deliberately; this only fences the automatic picker.
+const BRAND_UNSAFE = /\b(unvaccinat|unmuzzl|anti[-\s]?vax|black lives|blue lives|all lives matter|maga|trump|biden|qanon|brandon|2nd amendment|second amendment|ar[-\s]?15|glock|ammo|rifle|firearm|abortion|pro[-\s]?life|pro[-\s]?choice|marijuana|weed|f\W*ck|sh\W*t|b\W*tch|a\W*shole|nsfw|nude)\b/i;
+
+// Products for the article. Parses the topic into structured filters, queries
+// the catalogue's real columns, ranks by how many signals each product matches,
+// and picks a merchant-diverse set. Only pictured, active products, so every
+// card renders.
 async function collectProducts(opp: any): Promise<ProductBlock[]> {
   const admin = createServiceClient();
+  const text = [opp.suggested_title, opp.topic, opp.primary_keyword].filter(Boolean).join(" ");
+  const f = deriveTopicFilters(text);
 
-  const stop = new Set(["for", "best", "gift", "gifts", "ideas", "idea", "the", "and", "your", "top", "under", "with"]);
-  const terms = String(opp.primary_keyword || opp.topic || "")
-    .toLowerCase()
-    .split(/\s+/)
-    .map((t) => t.replace(/[^a-z0-9]/g, ""))
-    .filter((t) => t.length > 2 && !stop.has(t));
-
-  const base = () => admin.from("products").select(PRODUCT_COLS).eq("active", true).not("image_url", "is", null);
+  const base = () => {
+    let q = admin.from("products").select(PRODUCT_COLS).eq("active", true).not("image_url", "is", null);
+    if (f.priceMax) q = q.lte("price", f.priceMax);
+    if (f.gender) q = q.in("gender", ["unisex", f.gender]);
+    return q;
+  };
 
   const pool: ProductRow[] = [];
   const seen = new Set<string>();
@@ -179,30 +252,66 @@ async function collectProducts(opp: any): Promise<ProductBlock[]> {
     }
   };
 
-  // 1. Title keyword match — the strongest relevance signal we have.
-  if (terms.length > 0) {
-    const { data } = await base().or(terms.map((t) => `title.ilike.%${t}%`).join(",")).limit(120);
-    add(data as ProductRow[] | null);
-  }
+  // Structured relevance queries (each hits one GIN/btree index), merged + deduped.
+  if (f.tags.length) add((await base().overlaps("tags", f.tags).limit(300)).data as ProductRow[] | null);
+  if (f.occasions.length) add((await base().overlaps("occasions", f.occasions).limit(300)).data as ProductRow[] | null);
+  if (f.recipients.length) add((await base().overlaps("recipients", f.recipients).limit(300)).data as ProductRow[] | null);
+  if (f.terms.length) add((await base().or(f.terms.map((x) => `title.ilike.%${x}%`).join(",")).limit(120)).data as ProductRow[] | null);
 
-  // 2. Rank by how many topic terms each product touches (title/tags/occasions/
-  //    recipients), most-relevant first.
+  // Nothing structured matched (e.g. a pure budget topic, "Christmas", or
+  // "people who have everything") → a general pool within any price/gender bound.
+  if (pool.length < MAX_PRODUCTS) add((await base().limit(400)).data as ProductRow[] | null);
+
+  // Drop off-brand / controversial items before ranking.
+  for (let i = pool.length - 1; i >= 0; i--) if (BRAND_UNSAFE.test(pool[i].title || "")) pool.splice(i, 1);
+
+  // Rank by matched signals (tags/occasions weigh most).
   const score = (r: ProductRow) => {
-    const hay = [r.title, (r.tags || []).join(" "), (r.occasions || []).join(" "), (r.recipients || []).join(" ")]
-      .join(" ")
-      .toLowerCase();
-    return terms.reduce((n, t) => (hay.includes(t) ? n + 1 : n), 0);
+    const tags = r.tags || [], occ = r.occasions || [], rec = r.recipients || [];
+    let s = 0;
+    s += f.tags.filter((x) => tags.includes(x)).length * 2;
+    s += f.occasions.filter((x) => occ.includes(x)).length * 2;
+    s += f.recipients.filter((x) => rec.includes(x)).length;
+    const hay = (r.title || "").toLowerCase();
+    s += f.terms.filter((x) => hay.includes(x)).length;
+    return s;
   };
   pool.sort((a, b) => score(b) - score(a));
 
-  // 3. Thin topic (or no keyword hits)? Top up with any active, pictured product
-  //    so the guide still has enough cards to be worth publishing.
-  if (pool.length < MAX_PRODUCTS) {
-    const { data } = await base().limit(MAX_PRODUCTS * 2);
-    add(data as ProductRow[] | null);
+  // Collapse near-duplicate variants (same product in another colour/size shows
+  // as its own row) to one card per title.
+  const titleKey = (r: ProductRow) => (r.title || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().slice(0, 32);
+
+  // Pick MAX_PRODUCTS: one per title, capping any one merchant so a guide isn't
+  // 8 of the same shop.
+  const picked: ProductRow[] = [];
+  const perMerchant = new Map<string, number>();
+  const seenTitle = new Set<string>();
+  const CAP = 3;
+  for (const r of pool) {
+    if (picked.length >= MAX_PRODUCTS) break;
+    const tk = titleKey(r);
+    if (seenTitle.has(tk)) continue;
+    const key = r.merchant_name || "?";
+    if ((perMerchant.get(key) || 0) >= CAP) continue;
+    seenTitle.add(tk);
+    perMerchant.set(key, (perMerchant.get(key) || 0) + 1);
+    picked.push(r);
+  }
+  // Still short (diversity/title caps too tight for a thin topic) → backfill,
+  // keeping the one-per-title rule but dropping the merchant cap.
+  if (picked.length < MAX_PRODUCTS) {
+    const have = new Set(picked.map((r) => r.id));
+    for (const r of pool) {
+      if (picked.length >= MAX_PRODUCTS) break;
+      const tk = titleKey(r);
+      if (have.has(r.id) || seenTitle.has(tk)) continue;
+      seenTitle.add(tk);
+      picked.push(r);
+    }
   }
 
-  return pool.slice(0, MAX_PRODUCTS).map(productToBlock);
+  return picked.map(productToBlock);
 }
 
 // Published guides the new article can link to. Internal links are what make a
