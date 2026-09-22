@@ -17,6 +17,7 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createServiceClient } from "@/utils/supabase/admin";
+import { TAGS, OCCASIONS, RECIPIENTS } from "@/lib/gift-vocab";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 const MAX_PRODUCTS = 8;
@@ -143,15 +144,51 @@ export function productToBlock(p: ProductRow): ProductBlock {
   };
 }
 
+// Common words shoppers type mapped to our recipient vocabulary, so a search for
+// "mom" or "husband" finds products tagged parent/her/him.
+const RECIPIENT_ALIAS: Record<string, string[]> = {
+  mom: ["parent", "her"], mother: ["parent", "her"], mum: ["parent", "her"],
+  dad: ["parent", "him"], father: ["parent", "him"],
+  grandma: ["parent", "her"], grandpa: ["parent", "him"], grandparent: ["parent"],
+  wife: ["her"], girlfriend: ["her"], women: ["her"], woman: ["her"], girl: ["her"],
+  husband: ["him"], boyfriend: ["him"], men: ["him"], man: ["him"], boy: ["him"],
+  kid: ["child"], kids: ["child"], teen: ["child"], teenager: ["child"], baby: ["child"],
+  brother: ["sibling"], sister: ["sibling"], colleague: ["co-worker"], coworker: ["co-worker"],
+  teacher: ["teacher/mentor"], mentor: ["teacher/mentor"], bestie: ["friend"],
+};
+
 // Catalogue search behind the editor's product picker — over the live affiliate
-// products (only ones with an image, so cards never render blank).
-export async function searchCatalogue(query: string, limit = 12): Promise<ProductBlock[]> {
+// products (only ones with an image, so cards never render blank). Matches the
+// query against product TEXT (title/description) AND the structured tag /
+// occasion / recipient vocabulary, so category words like "travel", "fitness"
+// or "home decor" — and recipient words like "mom" — actually find products.
+export async function searchCatalogue(query: string, limit = 24): Promise<ProductBlock[]> {
   const admin = createServiceClient();
   const q = query.trim().replace(/[%,]/g, " ").trim();
-  let req = admin.from("products").select(PRODUCT_COLS).eq("active", true).not("image_url", "is", null).limit(limit);
-  if (q) req = req.ilike("title", `%${q}%`);
-  const { data } = await req;
-  return ((data ?? []) as ProductRow[]).map(productToBlock);
+  const base = () => admin.from("products").select(PRODUCT_COLS).eq("active", true).not("image_url", "is", null);
+
+  if (!q) {
+    const { data } = await base().limit(limit);
+    return ((data ?? []) as ProductRow[]).map(productToBlock);
+  }
+
+  const ql = q.toLowerCase();
+  const tags = TAGS.filter((t) => t.includes(ql));
+  const occasions = OCCASIONS.filter((o) => o.includes(ql));
+  const recipients = Array.from(new Set([...RECIPIENTS.filter((r) => r.includes(ql)), ...(RECIPIENT_ALIAS[ql] ?? [])]));
+
+  const pool: ProductRow[] = [];
+  const seen = new Set<string>();
+  const add = (rows: ProductRow[] | null) => {
+    for (const r of rows ?? []) if (!seen.has(r.id)) { seen.add(r.id); pool.push(r); }
+  };
+
+  add((await base().or(`title.ilike.%${q}%,description.ilike.%${q}%`).limit(limit)).data as ProductRow[] | null);
+  if (tags.length) add((await base().overlaps("tags", tags).limit(limit)).data as ProductRow[] | null);
+  if (occasions.length) add((await base().overlaps("occasions", occasions).limit(limit)).data as ProductRow[] | null);
+  if (recipients.length) add((await base().overlaps("recipients", recipients).limit(limit)).data as ProductRow[] | null);
+
+  return pool.slice(0, limit).map(productToBlock);
 }
 
 // Maps a category word in a topic to one of our internal tags.
