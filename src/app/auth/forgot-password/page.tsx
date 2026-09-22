@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { headers } from "next/headers";
-import { createClient } from "@/utils/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { SubmitButton } from "@/components/SubmitButton";
 
@@ -18,12 +18,18 @@ export default function ForgotPassword({
                      ? `https://${headersList.get("x-forwarded-host")}` 
                      : `http://${headersList.get("host")}`);
     const email = formData.get("email") as string;
-    const supabase = createClient();
 
-    // Use the /auth/confirm route (OTP / token_hash flow) instead of /auth/callback (PKCE).
-    // PKCE for password reset is fragile — it requires the email link to be
-    // clicked in the same browser session that initiated the reset. OTP works
-    // regardless of browser, tab, or device.
+    // Send the reset through a NON-PKCE client so the email carries a plain OTP
+    // token_hash, not a `pkce_…` token. The PKCE token requires the code-verifier
+    // cookie from the same browser that started the reset (fragile — and it broke
+    // real resets); a plain token_hash verifies at /auth/confirm from any browser
+    // or device. Reset only needs to trigger the email, so no session is needed.
+    const supabase = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { flowType: "implicit", persistSession: false, autoRefreshToken: false } },
+    );
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${origin}/auth/confirm?next=/dashboard/profile/reset-password`,
     });
