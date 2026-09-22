@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { syncAwin } from "@/lib/affiliate/sync";
 import { syncCj } from "@/lib/affiliate/sync-cj";
+import { syncRakuten } from "@/lib/affiliate/sync-rakuten";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // downloads + per-product image checks take a while
@@ -28,6 +29,8 @@ export async function GET(req: Request) {
   catch (e: any) { results.awin = { error: e?.message }; }
   try { results.cj = await syncCj(); }
   catch (e: any) { results.cj = { error: e?.message }; }
+  try { results.rakuten = await syncRakuten(); }
+  catch (e: any) { results.rakuten = { error: e?.message }; }
 
   return NextResponse.json(results);
 }

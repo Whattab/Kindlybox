@@ -5,6 +5,7 @@
 
 import type { AwinRow } from "./awin";
 import type { CjRawProduct } from "./cj";
+import type { RakutenRawProduct } from "./rakuten";
 import type { NormalizedProduct } from "./types";
 
 // Keyword → internal TAG. First match(es) win; a product can carry several tags.
@@ -85,6 +86,10 @@ const MERCHANT_PROFILES: Record<string, MerchantProfile> = {
   "Mosaic Weighted Blankets": { base: ["fitness & wellness", "home decor"], allow: ["fitness & wellness", "home decor"] },
   GraphicAudio: { base: ["books & reading"], allow: ["books & reading"] }, // audio dramas / narrated books
   "Bond Touch": { base: ["tech & gadgets", "fashion & accessories"], allow: ["tech & gadgets", "fashion & accessories"] },
+  // Gift cards are their own thing — never tag them as fashion/home/etc. or they'd
+  // pollute interest matching. base "gift cards" keeps them grouped and out of the
+  // quiz (which has no "gift cards" interest), while staying available to articles.
+  "Giftcards.com": { base: ["gift cards"], allow: ["gift cards"] },
 };
 
 function applyMerchantProfile(keywordTags: string[], merchant?: string | null): string[] {
@@ -200,6 +205,41 @@ export function normalizeCj(p: CjRawProduct): NormalizedProduct | null {
     price,
     currency: p.currency || "USD",
     category: null,
+    tags,
+    occasions,
+    recipients,
+    gender,
+    affiliate_link,
+    in_stock: true,
+    raw: {},
+  };
+}
+
+// Rakuten Advertising product → unified shape. Same tagging + gift-viability gate;
+// the tracked LinkSynergy click URL is the affiliate link.
+export function normalizeRakuten(p: RakutenRawProduct): NormalizedProduct | null {
+  const title = (p.productName || "").trim();
+  const affiliate_link = (p.linkUrl || "").trim();
+  const image_url = (p.imageUrl || "").trim() || null;
+  const price = p.price;
+
+  if (!title || !affiliate_link || !image_url || price === null) return null;
+
+  const hay = ` ${[title, p.category, p.description, p.merchantName].filter(Boolean).join(" ").toLowerCase()} `;
+  const { tags, occasions, recipients, gender } = deriveAttributes(hay, p.merchantName);
+
+  return {
+    network: "rakuten",
+    network_product_id: p.sku || affiliate_link,
+    merchant_id: p.mid,
+    merchant_name: p.merchantName,
+    feed_id: null,
+    title,
+    description: p.description ? p.description.slice(0, 1000) : null,
+    image_url,
+    price,
+    currency: "USD",
+    category: p.category,
     tags,
     occasions,
     recipients,

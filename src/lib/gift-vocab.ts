@@ -6,7 +6,7 @@
 export const TAGS = [
   "tech & gadgets", "fashion & accessories", "books & reading", "home & kitchen",
   "fitness & wellness", "outdoor/ adventure", "art & crafts", "music & instruments",
-  "gaming", "gardening", "movies & tv", "travel", "pets", "home decor",
+  "gaming", "gardening", "movies & tv", "travel", "pets", "home decor", "gift cards",
 ] as const;
 
 export const OCCASIONS = [
