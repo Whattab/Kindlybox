@@ -108,12 +108,16 @@ each file into its matching template, don't swap them:
 
 | Email | App route | Link variable |
 |---|---|---|
-| Reset Password | `/auth/confirm` (token_hash / OTP) | `{{ .RedirectTo }}&amp;token_hash={{ .TokenHash }}&amp;type=recovery` |
+| Reset Password | `/auth/confirm` (token_hash / OTP) | `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=recovery&amp;next=/dashboard/profile/reset-password` |
 | Confirm signup | `/auth/callback` (code / PKCE) | `{{ .ConfirmationURL }}` |
 
-> Write the query separators as `&amp;`, not raw `&`. Gmail mangles an unescaped
-> `&` in an href, so the clicked button loses the token (copy-pasting the URL
-> still works — that's the tell).
+> Two gotchas learned the hard way:
+> - Write query separators as `&amp;`, not raw `&` — Gmail mangles an unescaped
+>   `&` in an href (the clicked button loses the token; pasting the URL still
+>   works — that's the tell).
+> - The reset link builds its path from `{{ .SiteURL }}`, so **Site URL must be
+>   `https://kindlybox.com`** (URL Configuration). `{{ .RedirectTo }}` is NOT used —
+>   it collapses to the bare Site URL and yields a broken `http://host&token_hash=…`.
 
 > Using the default `{{ .ConfirmationURL }}` for **reset** produces an
 > "Authentication Error" page: it routes through Supabase's verify endpoint and
