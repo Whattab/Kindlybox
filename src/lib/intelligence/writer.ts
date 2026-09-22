@@ -261,7 +261,7 @@ function deriveTopicFilters(text: string) {
 // never want to auto-feature in a guide: political figures & slogans (any side),
 // anti-vax, weapons, drugs, and profanity/adult. Human editors can still add a
 // product deliberately; this only fences the automatic picker.
-const BRAND_UNSAFE = /\b(unvaccinat|unmuzzl|anti[-\s]?vax|black lives|blue lives|all lives matter|maga|trump|biden|qanon|brandon|2nd amendment|second amendment|ar[-\s]?15|glock|ammo|rifle|firearm|abortion|pro[-\s]?life|pro[-\s]?choice|marijuana|weed|f\W*ck|sh\W*t|b\W*tch|a\W*shole|nsfw|nude)\b/i;
+const BRAND_UNSAFE = /(unvaccinat|unmuzzl|anti[-\s]?vax|black lives|blue lives|all lives matter|let'?s go brandon|2nd amendment|second amendment|pro[-\s]?life|pro[-\s]?choice|\bmaga\b|\btrump\b|\bbiden\b|\bqanon\b|\bar[-\s]?15\b|\bglock\b|\bammo\b|\brifle\b|\bfirearm\b|\babortion\b|\bmarijuana\b|\bcannabis\b|\bnsfw\b|\bnude\b|\bfuck|\bshit\b|\bbitch\b|\basshole\b)/i;
 
 // Products for the article. Parses the topic into structured filters, queries
 // the catalogue's real columns, ranks by how many signals each product matches,
