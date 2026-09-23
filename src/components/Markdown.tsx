@@ -62,6 +62,15 @@ const isBullet = (l: string) => /^\s*[-*]\s+/.test(l);
 const isNumbered = (l: string) => /^\s*\d+[.)]\s+/.test(l);
 const stripMarker = (l: string) => l.replace(/^\s*(?:[-*]|\d+[.)])\s+/, "");
 
+// A YouTube URL on its own line becomes an embedded player. Supports watch,
+// youtu.be, /embed and /shorts forms; returns the 11-char video id.
+function youtubeId(url: string): string | null {
+  const m = url
+    .trim()
+    .match(/^(?:https?:\/\/)?(?:www\.)?(?:m\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})(?:[?&#].*)?$/i);
+  return m ? m[1] : null;
+}
+
 export function Markdown({ children }: { children: string }) {
   // Split on blank lines, then classify each block by its first line.
   const blocks = (children || "").replace(/\r\n/g, "\n").split(/\n{2,}/);
@@ -73,6 +82,25 @@ export function Markdown({ children }: { children: string }) {
         if (!block) return null;
         const lines = block.split("\n");
         const first = lines[0];
+
+        // A lone YouTube URL → responsive embedded player.
+        if (lines.length === 1) {
+          const vid = youtubeId(block);
+          if (vid) {
+            return (
+              <div key={bi} className="my-6 aspect-video w-full overflow-hidden rounded-2xl bg-black shadow-lg">
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${vid}`}
+                  title="Video"
+                  loading="lazy"
+                  className="w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              </div>
+            );
+          }
+        }
 
         if (/^###\s+/.test(first)) {
           return (
