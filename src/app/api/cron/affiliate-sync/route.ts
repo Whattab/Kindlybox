@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { syncAwin } from "@/lib/affiliate/sync";
 import { syncCj } from "@/lib/affiliate/sync-cj";
-// Rakuten is DORMANT — account was terminated 2026-09-23. The connector
-// (sync-rakuten.ts, rakuten.ts) is kept for a quick re-enable if the account is
-// reinstated: re-import syncRakuten and restore the try/catch below.
-// import { syncRakuten } from "@/lib/affiliate/sync-rakuten";
+import { syncRakuten } from "@/lib/affiliate/sync-rakuten";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // downloads + per-product image checks take a while
@@ -32,9 +29,8 @@ export async function GET(req: Request) {
   catch (e: any) { results.awin = { error: e?.message }; }
   try { results.cj = await syncCj(); }
   catch (e: any) { results.cj = { error: e?.message }; }
-  // Rakuten dormant (account terminated) — see import note above.
-  // try { results.rakuten = await syncRakuten(); }
-  // catch (e: any) { results.rakuten = { error: e?.message }; }
+  try { results.rakuten = await syncRakuten(); }
+  catch (e: any) { results.rakuten = { error: e?.message }; }
 
   return NextResponse.json(results);
 }
