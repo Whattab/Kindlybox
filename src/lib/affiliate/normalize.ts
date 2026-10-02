@@ -215,10 +215,23 @@ export function normalizeCj(p: CjRawProduct): NormalizedProduct | null {
   };
 }
 
+// Travel-brand gift cards (Expedia, Airbnb, airlines…) earn as an INSTANT
+// purchase, so they're the leak-free "gift of travel". We additionally tag them
+// "travel" so they surface for the quiz's travel interest, not just "gift cards".
+const TRAVEL_GIFTCARD = /\b(expedia|hotels\.?\s?com|airbnb|vrbo|marriott|hilton|hyatt|sheraton|westin|delta air|southwest airlines|united airlines|american airlines|jetblue|alaska airlines|frontier airlines|spirit airlines|travelocity|hotwire|orbitz|priceline|booking\.?\s?com|airlines?)\b/i;
+
 // Rakuten Advertising product → unified shape. Same tagging + gift-viability gate;
 // the tracked LinkSynergy click URL is the affiliate link.
 export function normalizeRakuten(p: RakutenRawProduct): NormalizedProduct | null {
-  const title = (p.productName || "").trim();
+  let title = (p.productName || "").trim();
+  // Giftcards.com feed titles carry "Shop … at GiftCards. com" boilerplate — strip
+  // it so cards read cleanly ("Airbnb eGift Card", not "Shop Airbnb … at GiftCards. com").
+  if ((p.merchantName || "") === "Giftcards.com") {
+    title = title
+      .replace(/^shop\s+/i, "")
+      .replace(/\s*[-–]?\s*(at\s+)?giftcards\.?\s?com\s*$/i, "")
+      .trim();
+  }
   const affiliate_link = (p.linkUrl || "").trim();
   const image_url = (p.imageUrl || "").trim() || null;
   const price = p.price;
@@ -226,7 +239,9 @@ export function normalizeRakuten(p: RakutenRawProduct): NormalizedProduct | null
   if (!title || !affiliate_link || !image_url || price === null) return null;
 
   const hay = ` ${[title, p.category, p.description, p.merchantName].filter(Boolean).join(" ").toLowerCase()} `;
-  const { tags, occasions, recipients, gender } = deriveAttributes(hay, p.merchantName);
+  const derived = deriveAttributes(hay, p.merchantName);
+  const tags = TRAVEL_GIFTCARD.test(title) ? Array.from(new Set([...derived.tags, "travel"])) : derived.tags;
+  const { occasions, recipients, gender } = derived;
 
   return {
     network: "rakuten",
