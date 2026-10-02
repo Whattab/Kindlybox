@@ -240,7 +240,10 @@ export function normalizeRakuten(p: RakutenRawProduct): NormalizedProduct | null
 
   const hay = ` ${[title, p.category, p.description, p.merchantName].filter(Boolean).join(" ").toLowerCase()} `;
   const derived = deriveAttributes(hay, p.merchantName);
-  const tags = TRAVEL_GIFTCARD.test(title) ? Array.from(new Set([...derived.tags, "travel"])) : derived.tags;
+  // Travel gift cards get a "travel" tag — but NOT rental-car cards (e.g. Expedia's
+  // Auto Card), which aren't a compelling standalone travel gift.
+  const isTravelCard = TRAVEL_GIFTCARD.test(title) && !/\b(auto|car rental|rental car)\b/i.test(title);
+  const tags = isTravelCard ? Array.from(new Set([...derived.tags, "travel"])) : derived.tags;
   const { occasions, recipients, gender } = derived;
 
   return {
