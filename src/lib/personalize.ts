@@ -44,6 +44,8 @@ interface PersonalizeInput {
 function buildPrompt({ answers, gift, recipientName }: PersonalizeInput): string {
   const interests = (answers.interests ?? []).filter(Boolean).join(", ");
   const pronoun = pronounFor(answers.gender); // him | her | they
+  // NEVER add gift.price_min/max here: for Amazon items that hand-entered price
+  // must not reach users, and the model could echo it into the note.
   const fields = [
     `Recipient relation: ${answers.recipient}`,
     recipientName ? `Recipient name: ${recipientName}` : "",

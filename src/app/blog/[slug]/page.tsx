@@ -7,6 +7,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { GiftImage } from "@/components/GiftImage";
 import { Markdown } from "@/components/Markdown";
 import { PRODUCTS_TOKEN, extractFaq, type ProductBlock } from "@/lib/intelligence/writer";
+import { isAmazonItem, AMAZON_PRICE_PLACEHOLDER } from "@/lib/amazon-display";
 import { DigitalGiftCallout } from "@/components/DigitalGiftCallout";
 import { extrasEnabled } from "@/lib/extras";
 import { requireAdmin } from "@/utils/admin";
@@ -131,7 +132,7 @@ function ProductCards({ products }: { products: ProductBlock[] }) {
           <p className="text-gray-600 text-sm leading-relaxed mt-4">{p.blurb}</p>
 
           <div className="mt-5 pt-4 border-t border-dashed border-gray-200 flex items-center justify-between gap-3 flex-wrap">
-            <div className="font-semibold text-primary text-lg">{priceLabel(p) ?? "See price"}</div>
+            <div className="font-semibold text-primary text-lg">{isAmazonItem({ url: p.affiliate_link }) ? AMAZON_PRICE_PLACEHOLDER : (priceLabel(p) ?? "See price")}</div>
             {(() => {
               // Affiliate products link straight to their tracked link; curated
               // gifts go through /go/<slug>. No link either way → no button.

@@ -4,6 +4,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { getRecommendations } from "@/lib/recommend";
 import { loadProductCandidates } from "@/lib/affiliate/candidates";
 import { generatePersonalizedReasons } from "@/lib/personalize";
+import { isAmazonItem } from "@/lib/amazon-display";
 import { Resend } from "resend";
 import GiftSuggestionsEmail from "@/emails/GiftSuggestions";
 import * as React from 'react';
@@ -147,10 +148,18 @@ export async function POST(request: Request) {
       console.log("[email] Skipped — no recipient email available");
     }
 
+    // Never ship a hand-entered Amazon price over the wire (Associates rule).
+    // The client only uses sessionId; the results page re-reads from the DB.
+    const safeRecommendations = recommendations.map((rec) =>
+      isAmazonItem({ affiliate_network: rec.gift.affiliate_network, url: rec.gift.affiliate_url })
+        ? { ...rec, gift: { ...rec.gift, price_min: null, price_max: null } as any }
+        : rec,
+    );
+
     return NextResponse.json({
       sessionId,
       success: true,
-      recommendations,
+      recommendations: safeRecommendations,
     });
   } catch (error: any) {
     console.error("Quiz submission error:", error);

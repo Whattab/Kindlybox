@@ -10,6 +10,7 @@ import { rankLabel, interestChips, pronounFor } from "@/lib/quiz-labels";
 import { DigitalGiftCallout } from "@/components/DigitalGiftCallout";
 import { suggestDigitalExtra } from "@/lib/digital-suggest";
 import { extrasEnabled } from "@/lib/extras";
+import { isAmazonItem, AMAZON_PRICE_PLACEHOLDER } from "@/lib/amazon-display";
 
 export default async function ResultsPage({
   params,
@@ -46,7 +47,7 @@ export default async function ResultsPage({
       personalized_reason,
       source,
       product_id,
-      gifts (id, name, description, image_url, price_min, price_max, affiliate_url),
+      gifts (id, name, description, image_url, price_min, price_max, affiliate_url, affiliate_network),
       products (id, title, description, image_url, price, affiliate_link)
     `)
     .eq("session_id", session.id)
@@ -136,6 +137,12 @@ export default async function ResultsPage({
                 }
               : suggestion.gifts;
             if (!gift) return null;
+            // Amazon items must never show a hand-entered price (Associates rule).
+            // Feed products are never Amazon; curated gifts carry the network tag.
+            const isAmazon = !isProduct && isAmazonItem({
+              affiliate_network: suggestion.gifts?.affiliate_network,
+              url: suggestion.gifts?.affiliate_url,
+            });
             return (
               <div
                 key={suggestion.id}
@@ -169,7 +176,9 @@ export default async function ResultsPage({
                 <div className="mt-5 pt-4 border-t border-dashed border-gray-200 space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <div className="font-semibold text-primary text-lg">
-                      ${gift.price_min}{gift.price_max && gift.price_max !== gift.price_min ? ` – $${gift.price_max}` : ""}
+                      {isAmazon
+                        ? AMAZON_PRICE_PLACEHOLDER
+                        : <>${gift.price_min}{gift.price_max && gift.price_max !== gift.price_min ? ` – $${gift.price_max}` : ""}</>}
                     </div>
 
                     <a
@@ -189,7 +198,7 @@ export default async function ResultsPage({
                       <input type="hidden" name="gift_description" value={gift.description || ""} />
                       <input type="hidden" name="gift_id" value={isProduct ? "" : (gift.id || "")} />
                       <input type="hidden" name="image_url" value={gift.image_url || ""} />
-                      <input type="hidden" name="price_paid" value={gift.price_max || gift.price_min || 0} />
+                      <input type="hidden" name="price_paid" value={isAmazon ? "" : (gift.price_max || gift.price_min || 0)} />
                       <input type="hidden" name="session_id" value={params.sessionId} />
                       <button
                         type="submit"

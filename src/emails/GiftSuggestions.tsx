@@ -14,6 +14,7 @@ import {
 } from '@react-email/components';
 import * as React from 'react';
 import { rankLabel } from '@/lib/quiz-labels';
+import { isAmazonItem, AMAZON_PRICE_PLACEHOLDER } from '@/lib/amazon-display';
 
 interface Gift {
   id: string;
@@ -23,6 +24,7 @@ interface Gift {
   price_min: number;
   price_max: number;
   affiliate_url: string | null;
+  affiliate_network?: string | null;
 }
 
 interface GiftScore {
@@ -84,7 +86,9 @@ export const GiftSuggestionsEmail = ({
                   ) : null}
                   <Text style={giftDescription}>{rec.gift.description}</Text>
                   <Text style={giftPrice}>
-                    ${rec.gift.price_min} - ${rec.gift.price_max}
+                    {isAmazonItem({ affiliate_network: rec.gift.affiliate_network, url: rec.gift.affiliate_url })
+                      ? AMAZON_PRICE_PLACEHOLDER
+                      : `$${rec.gift.price_min} - $${rec.gift.price_max}`}
                   </Text>
                   <Button
                     href={`${baseUrl}/results/${sessionId}`}

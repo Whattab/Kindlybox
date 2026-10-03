@@ -8,6 +8,8 @@
 
 import { createServiceClient } from "@/utils/supabase/admin";
 import type { Gift, QuizAnswers } from "@/lib/recommend";
+import { TRUSTED_MERCHANTS } from "./trusted-merchants";
+import { isBlockedTitle } from "./blocklist";
 
 const BUDGET_BANDS: Record<string, [number, number]> = {
   "under-25": [0, 25],
@@ -56,8 +58,16 @@ export async function loadProductCandidates(answers: QuizAnswers): Promise<Gift[
     const genders = wantGender === "male" || wantGender === "female" ? ["unisex", wantGender] : null;
     const band = BUDGET_BANDS[answers.budget];
 
+    // Step 1 safety gate (docs/quiz-decisions.md §1): only IN-STOCK products from
+    // the trusted-merchant allowlist are quiz-eligible until real staging exists.
     const base = () => {
-      let q = admin.from("products").select(cols).eq("active", true).not("image_url", "is", null);
+      let q = admin
+        .from("products")
+        .select(cols)
+        .eq("active", true)
+        .eq("in_stock", true)
+        .not("image_url", "is", null)
+        .in("merchant_name", Array.from(TRUSTED_MERCHANTS));
       if (genders) q = q.in("gender", genders);
       if (band) q = q.gte("price", band[0]).lte("price", band[1]);
       return q;
@@ -75,7 +85,10 @@ export async function loadProductCandidates(answers: QuizAnswers): Promise<Gift[
     const results = await Promise.all(queries);
     const map = new Map<string, ProductRow>();
     for (const r of results) for (const p of ((r.data || []) as ProductRow[])) if (!map.has(p.id)) map.set(p.id, p);
-    return [...map.values()].map(toGift);
+    // Brand-safety: drop titles matching the keyword blocklist (political,
+    // offensive, medical-claim, trademarked). Applied here (not in SQL) because
+    // the candidate set is already small and the match is whole-word in JS.
+    return Array.from(map.values()).filter((p) => !isBlockedTitle(p.title)).map(toGift);
   } catch (e) {
     console.error("[candidates] loadProductCandidates failed (gifts-only):", (e as any)?.message || e);
     return [];
