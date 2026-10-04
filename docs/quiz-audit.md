@@ -185,6 +185,14 @@ The quiz submit awaits 3 Gemini calls and an email send before responding. Both 
 - **Testing:** Vitest added (`npm test`) — 15 unit tests across the 3 new helpers, all passing; `tsc --noEmit` introduces no new errors in Step 1 files (pre-existing project errors untouched).
 - **Deferred:** the R7 migration must be applied to Supabase; nothing pushed/deployed.
 
+### Step 2 — ✅ Complete (2026-10-03, branch `quiz-upgrade`)
+- **Tracking redirect** (new `src/app/go/s/[id]/route.ts`): quiz results "Buy" clicks now route through `/go/s/<suggestionId>`, which resolves the pick's destination, appends the network subtag, logs the click, and 302s out. Results page Buy buttons rerouted ([results page](src/app/results/[sessionId]/page.tsx)); feed products + curated gifts both covered. The email links to the results page (not affiliate), so no email change.
+- **Network subtags** (new `src/lib/affiliate/tracking.ts`): appends `ascsubtag` (Amazon), `clickref` (Awin), `sid` (CJ), `u1` (Rakuten); Bookshop/other unchanged. Subtag value `kb-<suggestionId>` maps back to session + pick + answers.
+- **Amazon attribution fix:** Amazon gift links were shipping **untagged** (no commission). The redirect now injects `tag=` (from new `AMAZON_ASSOCIATE_TAG` env, fallback `kindlybox0c-20`) when missing. Verified on live data: tag injected + ascsubtag added.
+- **Click log** (migration `20261003_affiliate_clicks.sql`): new service-only `affiliate_clicks` table (session, suggestion, source, ids, network, subtag, destination, time); also sets `gift_suggestions.clicked_at` on first click. Logging is fail-soft.
+- **Testing:** 9 new tracking unit tests (24 total, all pass); `tsc --noEmit` no new errors; live read-only check confirmed correct param appending per network.
+- **Owner actions:** apply `affiliate_clicks` migration (dev→prod); set `AMAZON_ASSOCIATE_TAG=kindlybox0c-20` in `.env.local` + Vercel. (Still nothing pushed/deployed.)
+
 ---
 
 ## 5. Open questions for you

@@ -182,9 +182,9 @@ export default async function ResultsPage({
                     </div>
 
                     <a
-                      href={gift.affiliate_url}
+                      href={`/go/s/${suggestion.id}`}
                       target="_blank"
-                      rel={isProduct ? "sponsored nofollow noopener noreferrer" : "noopener noreferrer"}
+                      rel="sponsored nofollow noopener noreferrer"
                       className="inline-flex items-center justify-center gap-2 bg-primary text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-primary/90 transition-colors shadow-md group/btn"
                     >
                       Buy gift
