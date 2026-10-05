@@ -24,6 +24,21 @@ export function clickSubtag(suggestionId: string): string {
   return `kb-${suggestionId}`;
 }
 
+/** Extract a 10-char ASIN from a bare ASIN or a full Amazon product URL
+ *  (/dp/, /gp/product/, /gp/aw/d/). Returns the upper-cased ASIN or null. */
+export function parseAsin(input: string | null | undefined): string | null {
+  if (!input) return null;
+  const s = String(input).trim();
+  if (/^[A-Z0-9]{10}$/i.test(s)) return s.toUpperCase();
+  const m = s.match(/\/(?:dp|gp\/product|gp\/aw\/d)\/([A-Z0-9]{10})/i);
+  return m ? m[1].toUpperCase() : null;
+}
+
+/** Canonical Amazon product URL with our associate tag. */
+export function amazonProductUrl(asin: string): string {
+  return `https://www.amazon.com/dp/${asin}?tag=${AMAZON_ASSOCIATE_TAG}`;
+}
+
 /**
  * Return `rawUrl` with the right network sub-tracking param added. Existing
  * query params are preserved. An unparseable URL is returned unchanged.

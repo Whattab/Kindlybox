@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { appendTrackingParams, clickSubtag, AMAZON_ASSOCIATE_TAG } from "./tracking";
+import { appendTrackingParams, clickSubtag, AMAZON_ASSOCIATE_TAG, parseAsin, amazonProductUrl } from "./tracking";
 
 const params = (url: string) => new URL(url).searchParams;
 
@@ -54,5 +54,31 @@ describe("appendTrackingParams", () => {
 
   it("invalid/relative URL: returned unchanged", () => {
     expect(appendTrackingParams("/go/some-slug", "amazon", "kb-8")).toBe("/go/some-slug");
+  });
+});
+
+describe("parseAsin", () => {
+  it("accepts a bare ASIN (any case)", () => {
+    expect(parseAsin("B07CSKGLMM")).toBe("B07CSKGLMM");
+    expect(parseAsin("b07cskglmm")).toBe("B07CSKGLMM");
+    expect(parseAsin("  B07CSKGLMM  ")).toBe("B07CSKGLMM");
+  });
+  it("extracts from a product URL (/dp/ and /gp/product/)", () => {
+    expect(parseAsin("https://www.amazon.com/OXO-Grinder/dp/B07CSKGLMM?tag=x")).toBe("B07CSKGLMM");
+    expect(parseAsin("https://www.amazon.com/gp/product/B0047BIWSK/ref=xyz")).toBe("B0047BIWSK");
+  });
+  it("rejects junk", () => {
+    expect(parseAsin("not an asin")).toBeNull();
+    expect(parseAsin("https://example.com/foo")).toBeNull();
+    expect(parseAsin("")).toBeNull();
+    expect(parseAsin(null)).toBeNull();
+  });
+});
+
+describe("amazonProductUrl", () => {
+  it("builds a /dp/ URL carrying the associate tag", () => {
+    const u = amazonProductUrl("B07CSKGLMM");
+    expect(u).toContain("/dp/B07CSKGLMM");
+    expect(new URL(u).searchParams.get("tag")).toBe(AMAZON_ASSOCIATE_TAG);
   });
 });
