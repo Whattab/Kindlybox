@@ -198,6 +198,11 @@ The quiz submit awaits 3 Gemini calls and an email send before responding. Both 
 - **Dev-first:** `kindlybox-dev` set up and schema-mirrored; 3a applied + seeded + verified on dev. Nothing reads these tables yet (inert data layer), so zero risk to the app.
 - **Promoted to prod** (migration + `seed-tags.ts --prod`); verified identical to dev (129 tags / 73 synonyms). Next: 3b (tag columns on products/gifts + combined view), then 3c (staging/approval).
 
+### Step 3b — ✅ on dev (2026-10-05, branch `step-3b`)
+- **Catalogue tag columns + combined view** (migration `20261005_catalogue_view.sql`): added `style[]`, `gift_type[]`, `avoid_flags[]`, `experience_level`, `primary_interest` to **both** `products` and `gifts` (empty defaults; Step 4 fills them), with a static `experience_level` CHECK and GIN indexes on the product array columns. Created the `catalogue` **view** (`security_invoker = true`) unifying active gifts + active products for the Step 5 recommender.
+- **Verified on dev:** union works via service role; the CHECK rejects bad values; and the anon key sees **only gifts** through the view (products RLS holds — no leak). Nothing reads the view yet.
+- **Pending:** promote to prod (SQL Editor). Then 3c.
+
 ---
 
 ## 5. Open questions for you
