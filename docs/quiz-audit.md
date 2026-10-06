@@ -193,6 +193,11 @@ The quiz submit awaits 3 Gemini calls and an email send before responding. Both 
 - **Testing:** 9 new tracking unit tests (24 total, all pass); `tsc --noEmit` no new errors; live read-only check confirmed correct param appending per network.
 - **Owner actions:** apply `affiliate_clicks` migration (dev→prod); set `AMAZON_ASSOCIATE_TAG=kindlybox0c-20` in `.env.local` + Vercel. (Still nothing pushed/deployed.)
 
+### Step 3a — ✅ on dev (2026-10-05, branch `step-3a`)
+- **Tag taxonomy data layer** (migration `20261005_tag_taxonomy.sql`, `scripts/seed-tags.ts`): new `tags` table (Postgres `ltree` hierarchy) + `tag_synonyms`, seeded with **129 tags** across 8 dimensions (interest tree of 14 roots + 65 children; recipient, life_stage, occasion, style, gift_type, experience_level, avoid_flag) and **73 synonyms**. `label` matches the exact strings already in `gifts.tags`/`products.tags`, so no catalogue rewrite.
+- **Dev-first:** `kindlybox-dev` set up and schema-mirrored; 3a applied + seeded + verified on dev. Nothing reads these tables yet (inert data layer), so zero risk to the app.
+- **Pending:** promote to prod (SQL Editor migration + `seed-tags.ts --prod`). Then 3b (tag columns on products/gifts + combined view) and 3c (staging/approval).
+
 ---
 
 ## 5. Open questions for you
