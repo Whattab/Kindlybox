@@ -19,6 +19,7 @@ export const TRUSTED_MERCHANTS: ReadonlySet<string> = new Set([
   "GraphicAudio",
   "BBBGEM",
   "Bond Touch",
+  "Giftcards.com", // Rakuten — authorized seller of official brand gift cards
 ]);
 
 export function isTrustedMerchant(name: string | null | undefined): boolean {

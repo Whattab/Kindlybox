@@ -5,10 +5,10 @@
 import { createServiceClient } from "@/utils/supabase/admin";
 import { fetchJoinedShoppingProducts } from "./cj";
 import { normalizeCj } from "./normalize";
+import { upsertProducts } from "./upsert-products";
 import type { NormalizedProduct } from "./types";
 
 const MAX_CJ = 4000;
-const UPSERT_BATCH = 500;
 
 // Merchants we don't sync, by advertiserName:
 //  - BOOKSAMILLION.COM: book covers are hotlink-protected (403 from our domain),
@@ -45,34 +45,7 @@ export async function syncCj(): Promise<CjSyncSummary> {
   const byMerchant: Record<string, number> = {};
   for (const p of products) byMerchant[p.merchant_name || "?"] = (byMerchant[p.merchant_name || "?"] || 0) + 1;
 
-  let imported = 0;
-  for (let i = 0; i < products.length; i += UPSERT_BATCH) {
-    const batch = products.slice(i, i + UPSERT_BATCH).map((p) => ({
-      network: p.network,
-      network_product_id: p.network_product_id,
-      merchant_id: p.merchant_id,
-      merchant_name: p.merchant_name,
-      feed_id: p.feed_id,
-      title: p.title,
-      description: p.description,
-      image_url: p.image_url,
-      price: p.price,
-      currency: p.currency,
-      category: p.category,
-      tags: p.tags,
-      occasions: p.occasions,
-      recipients: p.recipients,
-      gender: p.gender,
-      affiliate_link: p.affiliate_link,
-      in_stock: p.in_stock,
-      active: true,
-      last_seen_at: ranAt,
-      updated_at: ranAt,
-    }));
-    const { error } = await admin.from("products").upsert(batch, { onConflict: "network,network_product_id" });
-    if (error) throw new Error(`CJ upsert failed: ${error.message}`);
-    imported += batch.length;
-  }
+  const imported = await upsertProducts(admin, products, "cj", ranAt);
 
   // CJ products no longer returned this run → mark inactive.
   let deactivated = 0;

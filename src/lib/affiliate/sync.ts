@@ -8,11 +8,11 @@
 import { createServiceClient } from "@/utils/supabase/admin";
 import { listFeeds, downloadFeed, downloadFeedCapped } from "./awin";
 import { normalizeAwin } from "./normalize";
+import { upsertProducts } from "./upsert-products";
 import type { NormalizedProduct } from "./types";
 
 const MAX_FEED_SIZE = 60_000;
 const MAX_PER_FEED = 2_500;
-const UPSERT_BATCH = 500;
 
 // Deliberate, human-reviewed exclusions — merchants confirmed to have
 // PERSISTENTLY broken/missing images (not a transient blip). This is stable
@@ -80,36 +80,10 @@ export async function syncAwin(): Promise<SyncSummary> {
     }
   }
 
-  // Upsert in batches.
+  // Stage-aware, tag-safe upsert: new rows get a review status; existing rows
+  // only get volatile fields refreshed (approved tags/status never overwritten).
   const products = [...byId.values()];
-  let imported = 0;
-  for (let i = 0; i < products.length; i += UPSERT_BATCH) {
-    const batch = products.slice(i, i + UPSERT_BATCH).map((p) => ({
-      network: p.network,
-      network_product_id: p.network_product_id,
-      merchant_id: p.merchant_id,
-      merchant_name: p.merchant_name,
-      feed_id: p.feed_id,
-      title: p.title,
-      description: p.description,
-      image_url: p.image_url,
-      price: p.price,
-      currency: p.currency,
-      category: p.category,
-      tags: p.tags,
-      occasions: p.occasions,
-      recipients: p.recipients,
-      gender: p.gender,
-      affiliate_link: p.affiliate_link,
-      in_stock: p.in_stock,
-      active: true,
-      last_seen_at: ranAt,
-      updated_at: ranAt,
-    }));
-    const { error } = await admin.from("products").upsert(batch, { onConflict: "network,network_product_id" });
-    if (error) throw new Error(`Upsert failed: ${error.message}`);
-    imported += batch.length;
-  }
+  const imported = await upsertProducts(admin, products, "awin", ranAt);
 
   // Anything from a processed network no longer in the feeds → mark inactive.
   let deactivated = 0;

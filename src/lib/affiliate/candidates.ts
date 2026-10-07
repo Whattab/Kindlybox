@@ -8,7 +8,6 @@
 
 import { createServiceClient } from "@/utils/supabase/admin";
 import type { Gift, QuizAnswers } from "@/lib/recommend";
-import { TRUSTED_MERCHANTS } from "./trusted-merchants";
 import { isBlockedTitle } from "./blocklist";
 
 const BUDGET_BANDS: Record<string, [number, number]> = {
@@ -22,6 +21,7 @@ interface ProductRow {
   id: string; title: string; description: string | null; image_url: string | null;
   price: number | null; tags: string[] | null; occasions: string[] | null;
   recipients: string[] | null; gender: string | null; affiliate_link: string; network: string | null;
+  merchant_name: string | null;
 }
 
 // Marker fields (__source/__productId) ride along so the submit route can tell a
@@ -53,21 +53,22 @@ function toGift(p: ProductRow): Gift {
 export async function loadProductCandidates(answers: QuizAnswers): Promise<Gift[]> {
   try {
     const admin = createServiceClient();
-    const cols = "id, title, description, image_url, price, tags, occasions, recipients, gender, affiliate_link, network";
+    const cols = "id, title, description, image_url, price, tags, occasions, recipients, gender, affiliate_link, network, merchant_name";
     const wantGender = (answers.gender || "").toLowerCase();
     const genders = wantGender === "male" || wantGender === "female" ? ["unisex", wantGender] : null;
     const band = BUDGET_BANDS[answers.budget];
 
-    // Step 1 safety gate (docs/quiz-decisions.md §1): only IN-STOCK products from
-    // the trusted-merchant allowlist are quiz-eligible until real staging exists.
+    // Quiz gate (Step 3c): only APPROVED, in-stock products are eligible. This
+    // retires Step 1's temporary trusted-merchant filter — approval status now
+    // reflects trust + blocklist (set at ingestion / admin review).
     const base = () => {
       let q = admin
         .from("products")
         .select(cols)
         .eq("active", true)
         .eq("in_stock", true)
-        .not("image_url", "is", null)
-        .in("merchant_name", Array.from(TRUSTED_MERCHANTS));
+        .eq("status", "approved")
+        .not("image_url", "is", null);
       if (genders) q = q.in("gender", genders);
       if (band) q = q.gte("price", band[0]).lte("price", band[1]);
       return q;
@@ -88,7 +89,7 @@ export async function loadProductCandidates(answers: QuizAnswers): Promise<Gift[
     // Brand-safety: drop titles matching the keyword blocklist (political,
     // offensive, medical-claim, trademarked). Applied here (not in SQL) because
     // the candidate set is already small and the match is whole-word in JS.
-    return Array.from(map.values()).filter((p) => !isBlockedTitle(p.title)).map(toGift);
+    return Array.from(map.values()).filter((p) => !isBlockedTitle(p.title, p.merchant_name)).map(toGift);
   } catch (e) {
     console.error("[candidates] loadProductCandidates failed (gifts-only):", (e as any)?.message || e);
     return [];
