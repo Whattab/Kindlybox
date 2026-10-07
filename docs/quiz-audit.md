@@ -203,14 +203,14 @@ The quiz submit awaits 3 Gemini calls and an email send before responding. Both 
 - **Verified on dev:** union works via service role; the CHECK rejects bad values; and the anon key sees **only gifts** through the view (products RLS holds — no leak). Nothing reads the view yet.
 - **Promoted to prod**; verified with real data (service role via `catalogue`: 64 gifts + 11,541 products; anon: 64 gifts + 0 products — no leak). Then 3c.
 
-### Step 3c — ✅ on dev (2026-10-07, branch `step-3c`)
+### Step 3c — ✅ on dev + prod + deployed (2026-10-07, branch `step-3c`)
 - **Staging & approval workflow** (migration `20261006_product_status.sql`): `products.status` (staged/approved/rejected, default approved); `catalogue` view now exposes `status`.
 - **Two-tier blocklist redesign** ([blocklist.ts](src/lib/affiliate/blocklist.ts)): `isHardBlocked` (slurs/explicit/hate/restricted/medical-claim → reject), `isReviewFlagged` (mild profanity/partisan/rec-drugs → stage), `isTrademarkBlocked` (reject only on untrusted merchants). Removed false positives (`xxx`, bare `treats`/`heals`/`cure`, bare `harris`). Added `Giftcards.com` to trusted merchants.
 - **Stage-aware, tag-safe sync** (new [upsert-products.ts](src/lib/affiliate/upsert-products.ts)): `computeStatus` + partition new/existing; existing rows get volatile fields only (tags/status preserved). All three syncs refactored to use it.
 - **Quiz gate** ([candidates.ts](src/lib/affiliate/candidates.ts)): now `status='approved'` + in_stock (retires Step 1's trusted-merchant filter); blocklist is merchant-aware (legit Gucci watches no longer excluded).
 - **Admin review queue** ([products dashboard](src/app/dashboard/products/page.tsx) + `actions.ts`): status/merchant/category/price filters, per-card Approve/Reject, and bulk approve-all/reject-all for the filtered set.
 - **Verified on dev:** tag-safe upsert (existing tags preserved, price updated), status computation, approved-only gate, view `status` column. 35 unit tests pass.
-- **Prod re-status preview:** 0 rejected, 18 staged (partisan tees), 11,523 stay approved. **Pending:** prod migration + `restatus-existing-products.ts --prod` + code deploy.
+- **Prod:** migration applied; `restatus-existing-products.ts --prod` set 18 → staged, 0 rejected, 11,523 approved (quiz-eligible: 11,522). Code merged to master + deployed. Step 1's trusted-merchant quiz gate retired. **Step 3 complete.** Remaining watch item: confirm the first prod sync preserves approved tags + statuses new rows correctly.
 
 ---
 
