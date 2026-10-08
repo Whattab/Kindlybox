@@ -216,14 +216,14 @@ The quiz submit awaits 3 Gemini calls and an email send before responding. Both 
 - **Free-text → approved tags** (new [ai-tags.ts](src/lib/ai-tags.ts)): `interpretFreeText(text)` maps a shopper's note to **existing** taxonomy labels only — a deterministic synonym/label layer + a Gemini pass (same fail-soft client as personalize), with hallucinations dropped and results capped. No migration (reads 3a's `tags`/`tag_synonyms`).
 - **Wired into the quiz** ([submit route](src/app/api/quiz/submit/route.ts)): interpreted interests blend into the quiz interests (candidate selection + scoring); full interpretation stored on `quiz_sessions.answers.interpreted` for Step 5. `recommend.ts` `maxInterests` 3→5 so merged interests are scored. Fully fail-soft.
 - **Verified on live vocabulary:** "espresso"→coffee/home & kitchen; "sourdough"→baking/cooking; "no alcohol"→avoid flag; "green thumb"→gardening/indoor plants; etc. 41 unit tests pass.
-- **Held on branch** (not deployed solo — pays off with 4b).
+- **Deployed with 4b** (2026-10-08).
 
 ### Step 4b — ✅ on dev/prod-data (2026-10-08, branch `step-4b`, carries 4a)
 - **Catalogue AI-tagging** ([ai-tags.ts](src/lib/ai-tags.ts) `tagItem` + `scripts/ai-tag-gifts.ts`, `scripts/ai-tag-products.ts`): maps an item to approved interests (incl. sub-interests), style, gift_type, avoid_flags, primary_interest. **All 64 gifts tagged on prod** (additive — existing tags kept); the 10 coffee items now carry `coffee`. Product tagging is a selective script (cost-controlled; not bulk-run).
 - **Budget = ceiling, not band** (owner principle: relevance over price) — [recommend.ts](src/lib/recommend.ts) `withinBudget` + [candidates.ts](src/lib/affiliate/candidates.ts): cheaper relevant items are no longer hidden by a higher budget; `priceFit` kept as a soft in-band nudge.
 - `ai-tags.ts` refactored to take the DB client as a param (no `@/` import), so scripts can reuse `tagItem`.
 - **Verified:** the coffee quiz now returns coffee gear in the top 3 at every budget (was padding with hydroponics). 41 unit tests pass.
-- **Pending:** deploy `step-4b` (ships 4a + 4b together). Then **Step 4 complete.**
+- **Deployed** (master `8fb6603`, ships 4a + 4b). **Step 4 complete.** Next: Step 5 (two-stage recommender + diversity + budget soft-preference polish).
 
 ---
 
