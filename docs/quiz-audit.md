@@ -210,7 +210,13 @@ The quiz submit awaits 3 Gemini calls and an email send before responding. Both 
 - **Quiz gate** ([candidates.ts](src/lib/affiliate/candidates.ts)): now `status='approved'` + in_stock (retires Step 1's trusted-merchant filter); blocklist is merchant-aware (legit Gucci watches no longer excluded).
 - **Admin review queue** ([products dashboard](src/app/dashboard/products/page.tsx) + `actions.ts`): status/merchant/category/price filters, per-card Approve/Reject, and bulk approve-all/reject-all for the filtered set.
 - **Verified on dev:** tag-safe upsert (existing tags preserved, price updated), status computation, approved-only gate, view `status` column. 35 unit tests pass.
-- **Prod:** migration applied; `restatus-existing-products.ts --prod` set 18 → staged, 0 rejected, 11,523 approved (quiz-eligible: 11,522). Code merged to master + deployed. Step 1's trusted-merchant quiz gate retired. **Step 3 complete.** Remaining watch item: confirm the first prod sync preserves approved tags + statuses new rows correctly.
+- **Prod:** migration applied; `restatus-existing-products.ts --prod` set 18 → staged, 0 rejected, 11,523 approved (quiz-eligible: 11,522). Code merged to master + deployed. Step 1's trusted-merchant quiz gate retired. **Step 3 complete.** ⚠ **Awin sync is failing (pre-existing, since ~Sep 18) — deferred until after the quiz upgrade; see memory `awin-sync-broken`.**
+
+### Step 4a — ✅ on dev (2026-10-07, branch `step-4a`)
+- **Free-text → approved tags** (new [ai-tags.ts](src/lib/ai-tags.ts)): `interpretFreeText(text)` maps a shopper's note to **existing** taxonomy labels only — a deterministic synonym/label layer + a Gemini pass (same fail-soft client as personalize), with hallucinations dropped and results capped. No migration (reads 3a's `tags`/`tag_synonyms`).
+- **Wired into the quiz** ([submit route](src/app/api/quiz/submit/route.ts)): interpreted interests blend into the quiz interests (candidate selection + scoring); full interpretation stored on `quiz_sessions.answers.interpreted` for Step 5. `recommend.ts` `maxInterests` 3→5 so merged interests are scored. Fully fail-soft.
+- **Verified on live vocabulary:** "espresso"→coffee/home & kitchen; "sourdough"→baking/cooking; "no alcohol"→avoid flag; "green thumb"→gardening/indoor plants; etc. 41 unit tests pass.
+- **Pending:** deploy (code-only). Then 4b (AI-tag the product catalogue into the new columns).
 
 ---
 

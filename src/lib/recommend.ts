@@ -50,7 +50,8 @@ const W = {
   // gift genuinely tagged with the interest.
   interestExact: 34,     // interest matches a gift tag outright
   interestPartial: 12,   // interest's vocabulary appears in name/description
-  maxInterests: 3,
+  maxInterests: 5,       // user picks up to 3; Step 4a adds interpreted free-text interests
+
   recipient: 20,
   occasion: 18,
   freeTextToken: 6,      // max 4

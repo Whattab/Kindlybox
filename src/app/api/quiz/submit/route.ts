@@ -4,6 +4,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { getRecommendations } from "@/lib/recommend";
 import { loadProductCandidates } from "@/lib/affiliate/candidates";
 import { generatePersonalizedReasons } from "@/lib/personalize";
+import { interpretFreeText } from "@/lib/ai-tags";
 import { isAmazonItem } from "@/lib/amazon-display";
 import { Resend } from "resend";
 import GiftSuggestionsEmail from "@/emails/GiftSuggestions";
@@ -37,18 +38,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to load gift catalog" }, { status: 500 });
     }
 
+    // 2b. Interpret the free-text note into APPROVED tags (fail-soft) and blend
+    // the interpreted interests into the quiz interests, so free-text actually
+    // influences candidate selection + scoring. The full interpretation is
+    // stored on the session for Step 5 (avoid_flags aren't acted on yet).
+    const interpreted = await interpretFreeText(freeText);
+    const effectiveInterests = Array.from(new Set([...(interests || []), ...interpreted.interests]));
+
     // 3. Score and recommend top 3 gifts — a FREE BLEND of the curated catalogue
     // and the affiliate products (pre-filtered to fit the answers). The scorer
     // treats both identically, so the best 3 win regardless of source.
     const productCandidates = await loadProductCandidates(
-      { recipient, occasion, interests, budget, ageGroup, gender, freeText },
+      { recipient, occasion, interests: effectiveInterests, budget, ageGroup, gender, freeText },
     );
     const catalogue = [...(gifts || []), ...productCandidates];
 
     // The seed rotates which of several equally-good gifts get shown, so two
     // people giving identical answers don't always see the exact same three.
     const recommendations = getRecommendations(
-      { recipient, occasion, interests, budget, ageGroup, gender, freeText },
+      { recipient, occasion, interests: effectiveInterests, budget, ageGroup, gender, freeText },
       catalogue,
       { seed: Date.now() },
     );
@@ -63,7 +71,7 @@ export async function POST(request: Request) {
       .insert([
         {
           user_id: user?.id || null,
-          answers: { recipient, occasion, interests, budget, ageGroup, gender, freeText, recipientName },
+          answers: { recipient, occasion, interests, budget, ageGroup, gender, freeText, recipientName, interpreted },
           email_captured: user ? user.email : email,
           first_name_captured: user ? user.user_metadata?.first_name : firstName,
         }
