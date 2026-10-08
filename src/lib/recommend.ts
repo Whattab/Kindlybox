@@ -155,6 +155,16 @@ const BUDGET_BANDS: Record<string, [number, number]> = {
   "100-200": [100, 200],
 };
 
+// Budget is a CEILING, not a band (owner decision): interest + free-text should
+// drive the match, and a higher budget must NOT hide cheaper relevant items. We
+// keep any item that starts at/below the band's max; "no-limit"/unknown keeps
+// everything. The priceFit bonus below still nudges genuinely in-band items up.
+const BUDGET_CEILING: Record<string, number> = { "under-25": 25, "25-50": 50, "50-100": 100, "100-200": 200 };
+export function withinBudget(priceMin: number, budget: string): boolean {
+  const ceil = BUDGET_CEILING[budget];
+  return ceil == null ? true : (priceMin ?? 0) <= ceil;
+}
+
 // Age matching. Products rarely carry an age, so we use keywords to (a) filter
 // obvious mismatches — kids' items for adults, alcohol/partner gifts for minors
 // — and (b) lightly boost milestone-specific gifts. Neutral products (most of
@@ -220,23 +230,8 @@ export function getRecommendations(
   const combinedSignalText = [freeText, interestsText].filter(Boolean).join(" ");
   const themeSignals = getThemeSignals(combinedSignalText);
 
-  // 1. Filter by budget
-  const filteredGifts = catalogue.filter(gift => {
-    switch (answers.budget) {
-      case 'under-25':
-        return gift.price_min < 25;
-      case '25-50':
-        return gift.price_max >= 25 && gift.price_min <= 50;
-      case '50-100':
-        return gift.price_max >= 50 && gift.price_min <= 100;
-      case '100-200':
-        return gift.price_max >= 100 && gift.price_min <= 200;
-      case 'no-limit':
-        return true;
-      default:
-        return true;
-    }
-  });
+  // 1. Filter by budget — a ceiling, so cheaper relevant items are never hidden.
+  const filteredGifts = catalogue.filter(gift => withinBudget(gift.price_min, answers.budget));
 
   // 1b. Exclude gifts marked for the opposite gender. Relationship (recipient)
   //     and gender are separate answers, so a men's item must be filtered by

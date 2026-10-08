@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     // the interpreted interests into the quiz interests, so free-text actually
     // influences candidate selection + scoring. The full interpretation is
     // stored on the session for Step 5 (avoid_flags aren't acted on yet).
-    const interpreted = await interpretFreeText(freeText);
+    const interpreted = await interpretFreeText(freeText, supabaseAdmin);
     const effectiveInterests = Array.from(new Set([...(interests || []), ...interpreted.interests]));
 
     // 3. Score and recommend top 3 gifts — a FREE BLEND of the curated catalogue

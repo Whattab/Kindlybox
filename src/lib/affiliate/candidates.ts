@@ -70,7 +70,8 @@ export async function loadProductCandidates(answers: QuizAnswers): Promise<Gift[
         .eq("status", "approved")
         .not("image_url", "is", null);
       if (genders) q = q.in("gender", genders);
-      if (band) q = q.gte("price", band[0]).lte("price", band[1]);
+      // Budget is a ceiling, not a band (Step 4b) — don't hide cheaper relevant items.
+      if (band) q = q.lte("price", band[1]);
       return q;
     };
 
