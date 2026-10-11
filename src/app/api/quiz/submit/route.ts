@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     // The seed rotates which of several equally-good gifts get shown, so two
     // people giving identical answers don't always see the exact same three.
     const recommendations = getRecommendations(
-      { recipient, occasion, interests: effectiveInterests, budget, ageGroup, gender, freeText },
+      { recipient, occasion, interests: effectiveInterests, budget, ageGroup, gender, freeText, avoidFlags: interpreted.avoid_flags },
       catalogue,
       { seed: Date.now() },
     );
