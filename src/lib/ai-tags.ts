@@ -157,7 +157,7 @@ async function aiTagItem(text: string, vocab: Vocab): Promise<Partial<ItemTags>>
     "Be strict — only tags that clearly, directly apply. Do NOT add tangential ones:",
     "- a gaming/office chair is furniture, NOT \"home & kitchen\"; a pet supplement is \"pets\", NOT \"fitness & wellness\";",
     "- exercise gear is \"fitness & wellness\", NOT \"home & kitchen\"; a cologne/candle is self-care/home, NOT \"travel\".",
-    "Occasions/recipients: only when the item genuinely suits them (a baby item → baby shower + child; a wood sign with a name → it depends on the name, not the medium). If unsure, leave them empty rather than guessing.",
+    "Occasions/recipients: only when the item genuinely suits them. Be careful with \"baby shower\" — tag it ONLY for newborn/nursery items (baby clothing, a nursery/newborn theme like animals, rainbow, 'baby', 'princess'). A personalized name sign with a SPORTS, GAMING, or older-kid hobby theme (gamer, basketball, football, volleyball, baseball) is NOT a baby-shower gift — use \"birthday\" or leave occasions empty. If unsure, leave them empty rather than guessing.",
     "",
     `PRODUCT: "${text}"`,
     "",
