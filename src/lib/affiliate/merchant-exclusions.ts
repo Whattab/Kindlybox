@@ -37,6 +37,8 @@ interface ExclusionRule {
 // Keys are exact product.merchant_name values. Add your rules here:
 export const MERCHANT_EXCLUSIONS: Record<string, ExclusionRule> = {
   Printerval: { occasions: ["baby shower"] },
+  PawFurEver: { occasions: ["baby shower", "wedding"] },
+  "Lucasgift - US": { occasions: ["sympathy"] },
 };
 
 const lc = (s: string | null | undefined) => (s || "").toLowerCase().trim();
