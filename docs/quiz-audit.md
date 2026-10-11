@@ -225,12 +225,13 @@ The quiz submit awaits 3 Gemini calls and an email send before responding. Both 
 - **Verified:** the coffee quiz now returns coffee gear in the top 3 at every budget (was padding with hydroponics). 41 unit tests pass.
 - **Deployed** (master `8fb6603`, ships 4a + 4b). **Step 4 complete.** Next: Step 5 (two-stage recommender + diversity + budget soft-preference polish).
 
-### Step 5a — ✅ code complete (2026-10-10, branch `step-5a`)
+### Step 5a — ✅ deployed (2026-10-10, master `5f674b7`, branch `step-5a`)
 - **Two-stage pipeline + occasion weighting** ([recommend.ts](src/lib/recommend.ts)): Stage A hard filters now include an **avoid-flags** drop (a `no alcohol` shopper never sees a wine/alcohol gift; same for scent-sensitive etc.), acting on Step 4a's interpreted `avoid_flags`. Stage B adds **specific-occasion weighting**: for `baby shower / wedding / graduation / promotion-retirement`, an occasion-tag match scores `occasionSpecific` (≈42, above a lone interest's +34) and **gates** the qualified set, so occasion-appropriate items lead; generic occasions (birthday) still let interest drive.
 - **Age-filter bug fixed:** a baby shower no longer excludes baby items because the recipient's age group is adult (`babyContext` skips the age filter).
 - New fields `style`/`gift_type`/`avoid_flags`/`primary_interest` carried through [candidates.ts](src/lib/affiliate/candidates.ts) `toGift` + the submit route passes `avoidFlags`.
 - **Verified:** coffee sim still coffee-first (87% OXO grinder, no regression); baby-shower sim now occasion-gated (dog license + pure-interest adult hoodies gone). 45 unit tests pass; tsc clean for 5a files. New `recommend.test.ts` covers occasion weighting + avoid-flags.
-- **Known residual (data, not logic):** some Printerval novelty apparel is mis-tagged `baby shower`, so it can outrank genuine baby gifts when it also matches the picked interest. This is the **deferred product re-tag**, not a 5a defect. Next: 5b (result diversity).
+- **Verified on live data (sim):** the baby-shower complaint (anime hoodies + graduation keychain, a master-era result) is fixed — 5a gates to the 958 baby-shower products, so cross-occasion junk is gone. Reusable sim: `scripts/quiz-sim.ts`.
+- **Known residual → 5b:** *within* the gated occasion pool, items tie on the occasion score, so ranking is arbitrary (a "Gamer Name Wood Sign" tagged `baby shower` can tie with the diaper cake / baby blanket). 5b must rank within the pool by relevance/quality/diversity so the best gifts surface. Separately, affiliate products with dead `productserve` images ("No image available") persist until the **Awin feed sync** (deferred) is fixed.
 
 ---
 
