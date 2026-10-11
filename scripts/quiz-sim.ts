@@ -13,7 +13,7 @@
 
 import { config } from "dotenv";
 import { createClient } from "@supabase/supabase-js";
-import { getRecommendations, type Gift, type QuizAnswers } from "../src/lib/recommend";
+import { getRecommendations, styleOf, type Gift, type QuizAnswers } from "../src/lib/recommend";
 import { isBlockedTitle } from "../src/lib/affiliate/blocklist";
 
 const useDev = process.argv.includes("--dev");
@@ -29,6 +29,7 @@ const SCENARIOS: Scenario[] = [
   { name: "baby-shower", answers: { recipient: "child", occasion: "baby shower", interests: ["fashion & accessories", "apparel"], budget: "50-100", ageGroup: "under12", gender: "male", freeText: "New baby use new clothes all the time" } },
   { name: "coffee", answers: { recipient: "her", occasion: "birthday", interests: ["home & kitchen", "coffee"], budget: "50-100", ageGroup: "", gender: "female", freeText: "obsessed with coffee" } },
   { name: "no-alcohol", answers: { recipient: "her", occasion: "birthday", interests: ["home & kitchen"], budget: "50-100", ageGroup: "", gender: "female", freeText: "", avoidFlags: ["no alcohol"] } },
+  { name: "sympathy", answers: { recipient: "friend", occasion: "sympathy", interests: [], budget: "50-100", ageGroup: "", gender: "unknown", freeText: "lost her mother" } },
 ];
 
 async function loadProductCandidates(answers: QuizAnswers): Promise<Gift[]> {
@@ -76,7 +77,7 @@ async function run() {
     console.log(`    occasion=${sc.answers.occasion} interests=${JSON.stringify(sc.answers.interests)} budget=${sc.answers.budget}${sc.answers.avoidFlags ? " avoid=" + JSON.stringify(sc.answers.avoidFlags) : ""}`);
     recs.forEach((r, i) => {
       const src = (r.gift as any).__source === "product" ? "prod" : "gift";
-      console.log(`  ${i + 1}. [${r.matchScorePercent}%] ${r.gift.name.slice(0, 48)} «occ:${(r.gift.occasions || []).join(",") || "-"}» «tag:${(r.gift.tags || []).join(",") || "-"}» (${src})`);
+      console.log(`  ${i + 1}. [${r.matchScorePercent}%] {${styleOf(r.gift)}} ${r.gift.name.slice(0, 44)} «occ:${(r.gift.occasions || []).join(",") || "-"}» «tag:${(r.gift.tags || []).join(",") || "-"}» (${src})`);
     });
   }
   process.exit(0);
