@@ -241,6 +241,14 @@ The quiz submit awaits 3 Gemini calls and an email send before responding. Both 
 - **Verified (sim on live data):** baby-shower now returns 3 feels incl. a genuine treat (chocolate strawberries) not 3× wood signs; coffee unchanged (3 coffee items); no-alcohol no longer shows the wine chiller; sympathy shows no fun/quirky. 52 unit tests pass; tsc clean.
 - **Known residual (tag quality, not 5b):** a few curated gifts are loosely tagged (a gaming chair / dumbbells carry `home & kitchen`), and the best baby item (diaper cake) still ties with a "Gamer Name Wood Sign" for the practical slot — both resolved by tag cleanup / the deferred product re-tag. Dead affiliate images still await the Awin fix.
 
+### Tag-quality fix — ✅ gifts + deterministic cleanup (2026-10-11, branch `tag-quality`)
+*Prerequisite for Steps 6-8: the recommender was correct but scoring dirty tags.*
+- **`tagItem` extended** ([ai-tags.ts](src/lib/ai-tags.ts)) to emit `occasions` + `recipients` (+ stricter interest prompt, cap 4) so future re-tags can replace the keyword-normalizer data. `finalizeItemTags` validates both dimensions.
+- **Gift cleanup (applied to prod)** via `scripts/retag-gifts.ts` (replace interests/style, **preserve** curated occasions/recipients): stripped Step 4b's additive magnets — `pets` off wind chimes/wine chiller, `home & kitchen` off dumbbells/flowers, `gaming` off a running watch, junk "books for mom". Gaming chair hand-fixed to `[gaming, pc gaming]`. **Result:** no-alcohol/home & kitchen quiz no longer surfaces the chair or dumbbells; coffee unchanged.
+- **Product re-tag — NOT run (owner cost decision).** A dry run proved Gemini Flash won't drop `baby shower` from sport/gamer name signs even when told to, so the paid AI re-tag was low-ROI. Instead:
+- **Deterministic baby-shower cleanup (applied to prod)** via `scripts/clean-baby-shower-tags.ts`: removed `baby shower` from **323** products with non-newborn themes (sport/gaming/adult-hobby titles) or adult apparel/jewelry lacking infant-sizing words. **Result:** baby-shower quiz returns a kids-clothing eGift card + nursery items, not dog licenses / adult hoodies / dirt-bike tees.
+- **Still available if wanted:** the full/targeted AI re-tag (`scripts/ai-tag-products.ts`, resumable via the `20261010_product_ai_tagged_at` migration) — good for filling `style` catalogue-wide, but 5b derives `style` fine, so it's optional. Awin dead-image fix still deferred.
+
 ---
 
 ## 5. Open questions for you

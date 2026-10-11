@@ -18,6 +18,8 @@ export interface Vocab {
   avoidLabels: string[];
   styleLabels: string[];
   giftTypeLabels: string[];
+  occasionLabels: string[];
+  recipientLabels: string[];
   subInterest: Set<string>; // interest labels that are sub-interests (ltree path has a dot)
   synonyms: { phrase: string; label: string; dimension: string }[];
 }
@@ -28,6 +30,8 @@ export interface ItemTags {
   style: string[];
   gift_type: string[];
   avoid_flags: string[];
+  occasions: string[];
+  recipients: string[];
   primary_interest: string | null;
 }
 
@@ -51,13 +55,15 @@ export async function loadVocabulary(db: SupabaseClient): Promise<Vocab> {
   const avoidLabels = ofDim("avoid_flag");
   const styleLabels = ofDim("style");
   const giftTypeLabels = ofDim("gift_type");
+  const occasionLabels = ofDim("occasion");
+  const recipientLabels = ofDim("recipient");
   const subInterest = new Set(
     (tags || []).filter((t: any) => t.dimension === "interest" && String(t.path || "").includes(".")).map((t: any) => t.label),
   );
   const synonyms = (syns || [])
     .map((s: any) => { const t: any = byId.get(s.tag_id); return t ? { phrase: s.phrase, label: t.label, dimension: t.dimension } : null; })
     .filter(Boolean) as Vocab["synonyms"];
-  _vocab = { interestLabels, avoidLabels, styleLabels, giftTypeLabels, subInterest, synonyms };
+  _vocab = { interestLabels, avoidLabels, styleLabels, giftTypeLabels, occasionLabels, recipientLabels, subInterest, synonyms };
   _vocabAt = Date.now();
   return _vocab;
 }
@@ -126,12 +132,16 @@ export function pickPrimaryInterest(interests: string[], vocab: Vocab): string |
 export function finalizeItemTags(parts: Partial<ItemTags>[], vocab: Vocab): ItemTags {
   const iSet = new Set(vocab.interestLabels), aSet = new Set(vocab.avoidLabels);
   const sSet = new Set(vocab.styleLabels), gSet = new Set(vocab.giftTypeLabels);
+  const oSet = new Set(vocab.occasionLabels), rSet = new Set(vocab.recipientLabels);
   const uniq = (arr: string[] = []) => Array.from(new Set(arr));
-  const interests = uniq(parts.flatMap((p) => p.interests || [])).filter((l) => iSet.has(l)).slice(0, 6);
+  // Cap interests at 4 (was 6) to curb magnet over-tagging (e.g. a chair bleeding into "home & kitchen").
+  const interests = uniq(parts.flatMap((p) => p.interests || [])).filter((l) => iSet.has(l)).slice(0, 4);
   const avoid_flags = uniq(parts.flatMap((p) => p.avoid_flags || [])).filter((l) => aSet.has(l)).slice(0, 3);
   const style = uniq(parts.flatMap((p) => p.style || [])).filter((l) => sSet.has(l)).slice(0, 2);
   const gift_type = uniq(parts.flatMap((p) => p.gift_type || [])).filter((l) => gSet.has(l)).slice(0, 2);
-  return { interests, style, gift_type, avoid_flags, primary_interest: pickPrimaryInterest(interests, vocab) };
+  const occasions = uniq(parts.flatMap((p) => p.occasions || [])).filter((l) => oSet.has(l)).slice(0, 3);
+  const recipients = uniq(parts.flatMap((p) => p.recipients || [])).filter((l) => rSet.has(l)).slice(0, 3);
+  return { interests, style, gift_type, avoid_flags, occasions, recipients, primary_interest: pickPrimaryInterest(interests, vocab) };
 }
 
 async function aiTagItem(text: string, vocab: Vocab): Promise<Partial<ItemTags>> {
@@ -140,10 +150,14 @@ async function aiTagItem(text: string, vocab: Vocab): Promise<Partial<ItemTags>>
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
     model: GEMINI_MODEL,
-    generationConfig: { temperature: 0.2, maxOutputTokens: 260, thinkingConfig: { thinkingBudget: 0 } } as any,
+    generationConfig: { temperature: 0.2, maxOutputTokens: 320, thinkingConfig: { thinkingBudget: 0 } } as any,
   });
   const prompt = [
     "Tag this gift product, choosing ONLY from the provided lists (exact spelling). Prefer the most specific interest (e.g. a coffee grinder → coffee, not just home & kitchen).",
+    "Be strict — only tags that clearly, directly apply. Do NOT add tangential ones:",
+    "- a gaming/office chair is furniture, NOT \"home & kitchen\"; a pet supplement is \"pets\", NOT \"fitness & wellness\";",
+    "- exercise gear is \"fitness & wellness\", NOT \"home & kitchen\"; a cologne/candle is self-care/home, NOT \"travel\".",
+    "Occasions/recipients: only when the item genuinely suits them. Be careful with \"baby shower\" — tag it ONLY for newborn/nursery items (baby clothing, a nursery/newborn theme like animals, rainbow, 'baby', 'princess'). A personalized name sign with a SPORTS, GAMING, or older-kid hobby theme (gamer, basketball, football, volleyball, baseball) is NOT a baby-shower gift — use \"birthday\" or leave occasions empty. If unsure, leave them empty rather than guessing.",
     "",
     `PRODUCT: "${text}"`,
     "",
@@ -151,21 +165,23 @@ async function aiTagItem(text: string, vocab: Vocab): Promise<Partial<ItemTags>>
     `ALLOWED STYLES: ${vocab.styleLabels.join(", ")}`,
     `ALLOWED GIFT TYPES: ${vocab.giftTypeLabels.join(", ")}`,
     `ALLOWED AVOID FLAGS: ${vocab.avoidLabels.join(", ")}`,
+    `ALLOWED OCCASIONS: ${vocab.occasionLabels.join(", ")}`,
+    `ALLOWED RECIPIENTS: ${vocab.recipientLabels.join(", ")}`,
     "",
-    "Pick 1-4 interests (include the specific sub-interest AND its parent when clear), 1-2 styles, 1 gift type, and any avoid flags that apply.",
-    'Return ONLY JSON: {"interests":[],"style":[],"gift_type":[],"avoid_flags":[]}. No prose, no code fences.',
+    "Pick 1-4 interests (include the specific sub-interest AND its parent when clear), 1-2 styles, 1 gift type, 0-3 occasions, 0-3 recipients, and any avoid flags that apply.",
+    'Return ONLY JSON: {"interests":[],"style":[],"gift_type":[],"avoid_flags":[],"occasions":[],"recipients":[]}. No prose, no code fences.',
   ].join("\n");
   const result = await model.generateContent(prompt);
   const raw = result.response.text().trim().replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
   const p = JSON.parse(raw);
   const arr = (v: any) => (Array.isArray(v) ? v.map(String) : []);
-  return { interests: arr(p.interests), style: arr(p.style), gift_type: arr(p.gift_type), avoid_flags: arr(p.avoid_flags) };
+  return { interests: arr(p.interests), style: arr(p.style), gift_type: arr(p.gift_type), avoid_flags: arr(p.avoid_flags), occasions: arr(p.occasions), recipients: arr(p.recipients) };
 }
 
 /** AI-tag a catalogue item (product/gift) into approved tags. Fail-soft. */
 export async function tagItem(title: string, description: string | null | undefined, db: SupabaseClient): Promise<ItemTags> {
   const text = [title, description].filter(Boolean).join(". ").trim();
-  const empty: ItemTags = { interests: [], style: [], gift_type: [], avoid_flags: [], primary_interest: null };
+  const empty: ItemTags = { interests: [], style: [], gift_type: [], avoid_flags: [], occasions: [], recipients: [], primary_interest: null };
   if (!text) return empty;
   let vocab: Vocab;
   try { vocab = await loadVocabulary(db); } catch { return empty; }
