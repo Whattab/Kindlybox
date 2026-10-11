@@ -9,6 +9,10 @@ export interface QuizAnswers {
   recipientName?: string;
   avoidFlags?: string[]; // interpreted "avoid" constraints (Step 4a/5a), e.g. "no alcohol"
   giftFeel?: string;     // optional "feel" (Step 6 question): practical/sentimental/treat/experience/fun/surprise me
+  // Step 6 branching-quiz signals (v1 never sets these, so its results are unchanged).
+  experienceLevel?: string;  // beginner / enthusiast / expert ("has all the gear")
+  excludeIntimate?: boolean; // child or coworker: no romantic/intimate items
+  excludeLuxe?: boolean;     // child: no luxe-styled items
 }
 
 export interface Gift {
@@ -68,6 +72,7 @@ const W = {
   priceFit: 8,           // sits comfortably inside the chosen budget band
   purchasable: 4,        // has a real destination we can send the buyer to
   ageFit: 8,             // clearly suits the recipient's age group
+  gearUpgrade: 6,        // "has all the gear": premium upgrades, consumables, experiences
 };
 
 // Vocabulary for each quiz interest, so an interest can match a gift that was
@@ -242,6 +247,10 @@ const MILESTONE_WORDS: Record<string, string[]> = {
   "30s": ["30th", "30 years"],
   "40s": ["40th", "40 years"],
   "50+": ["50th", "60th", "70th", "80th", "50 years", "60 years", "retirement"],
+  // Step 6 life stages (adult chips span two decades).
+  "30s-40s": ["30th", "40th", "30 years", "40 years"],
+  "50s-60s": ["50th", "60th", "50 years", "60 years", "retirement"],
+  "70+": ["70th", "80th", "90th", "70 years", "80 years"],
 };
 const isChildAge = (a: string) => a === "under12" || a === "13-19";
 
@@ -262,7 +271,11 @@ const NEGATIVE_WORDS = ["sympathy", "funeral", "memorial", "condolence", "bereav
 // Birthday" shirts) should only show to the matching decade.
 const AGE_RANGES: Record<string, [number, number]> = {
   under12: [0, 12], "13-19": [13, 19], "20s": [20, 29], "30s": [30, 39], "40s": [40, 49], "50+": [50, 120],
+  "30s-40s": [30, 49], "50s-60s": [50, 69], "70+": [70, 120],
 };
+
+// Romantic/intimate items — never for a child or a coworker (decisions §4).
+const INTIMATE_WORDS = ["lingerie", "romantic", "romance", "sexy", "boudoir", "naughty", "kinky", "couple", "his and hers", "massage oil"];
 function milestoneAge(text: string): number | null {
   const m = text.match(/\b(\d{1,3})\s*(?:st|nd|rd|th)?\s*(?:birthday|years?\s*old)\b/);
   return m ? parseInt(m[1], 10) : null;
@@ -366,8 +379,20 @@ export function getRecommendations(
     });
   });
 
+  // Stage A: relationship rules from the branching quiz (Step 6) — nothing
+  // romantic/intimate for a child or coworker, nothing luxe for a child.
+  const relationshipSafe = !answers.excludeIntimate && !answers.excludeLuxe ? safeFromAvoids : safeFromAvoids.filter((gift) => {
+    if (answers.excludeLuxe && (gift.style || []).some((t) => normKey(t) === "luxe")) return false;
+    if (answers.excludeIntimate) {
+      const hay = [gift.name, gift.description].filter(Boolean).join(" ").toLowerCase();
+      if (INTIMATE_WORDS.some((w) => containsWord(hay, w))) return false;
+    }
+    return true;
+  });
+
   // Stage A: a sympathy occasion never shows fun/quirky items (owner rule).
-  const stageA = !isSympathy ? safeFromAvoids : safeFromAvoids.filter((gift) => styleOf(gift) !== "fun");
+  const stageA = !isSympathy ? relationshipSafe : relationshipSafe.filter((gift) => styleOf(gift) !== "fun");
+  const expertGear = (answers.experienceLevel || "").toLowerCase() === "expert";
 
   // The best score these answers could possibly produce, so the percentage
   // means "how close to a perfect match", not a share of an arbitrary constant.
@@ -381,7 +406,8 @@ export function getRecommendations(
       (freeTextTokens.length > 0 || themeSignals.length > 0 ? W.signalBonus : 0) +
       W.priceFit +
       W.purchasable +
-      (answers.ageGroup ? W.ageFit : 0),
+      (answers.ageGroup ? W.ageFit : 0) +
+      (expertGear ? W.gearUpgrade : 0),
   );
 
   // 2. Score remaining gifts
@@ -462,6 +488,17 @@ export function getRecommendations(
       }
     }
 
+    // "Has all the gear": they own the basics, so favour premium upgrades,
+    // consumables and experiences over another starter item.
+    if (expertGear) {
+      const gt = (gift.gift_type || []).map(normKey);
+      const st = (gift.style || []).map(normKey);
+      if (gt.includes("consumable") || gt.includes("experience") || st.includes("luxe")) {
+        score += W.gearUpgrade;
+        reasons.push("an upgrade for someone who has the basics");
+      }
+    }
+
     // Prefer something the buyer can actually click through and buy. Only
     // destination_url proves that: slug and affiliate_url are auto-generated
     // for every gift, so including them made this bonus fire for all of them —
@@ -515,12 +552,18 @@ export function getRecommendations(
   //    "coffee" quiz), this degrades to plain top-by-score. Deduping by name
   //    keeps a duplicated catalogue row from filling more than one slot.
   const DIVERSITY_WINDOW = 8; // ~ one interest tier; only vary among items this close to the best
+  // A chosen feel may pull in a lower-scoring item, but never across a whole
+  // interest tier (34): "a treat for a coffee lover" must stay coffee-relevant,
+  // not become chocolates that ignore the interest.
+  const FEEL_WINDOW = 20;
   const feel = feelBucket(answers.giftFeel || "");
   const pickDiverse = (pool: GiftScore[]): GiftScore[] => {
     const deduped: GiftScore[] = [];
     const nameSeen = new Set<string>();
     for (const s of pool) {
-      const key = (s.gift.name || "").trim().toLowerCase();
+      // Florist/size variants ("Bouquet - Standard" / "Bouquet - Deluxe") are
+      // the same gift to a shopper, so dedupe on the name before " - ".
+      const key = (s.gift.name || "").split(" - ")[0].trim().toLowerCase();
       if (key && nameSeen.has(key)) continue;
       if (key) nameSeen.add(key);
       deduped.push(s);
@@ -533,7 +576,8 @@ export function getRecommendations(
 
     if (feel) {
       // Gift feel chosen (Step 6): most picks match it, then a wildcard.
-      for (const s of deduped) { if (out.length >= limit - 1) break; if (styleOf(s.gift) === feel) take(s); }
+      const floor = deduped[0].score - FEEL_WINDOW;
+      for (const s of deduped) { if (out.length >= limit - 1 || s.score < floor) break; if (styleOf(s.gift) === feel) take(s); }
       for (const s of deduped) { if (out.length >= limit) break; if (!picked.has(s) && styleOf(s.gift) !== feel) take(s); }
     } else {
       // Default mix: one gift per distinct feel, chosen among near-top items only.
