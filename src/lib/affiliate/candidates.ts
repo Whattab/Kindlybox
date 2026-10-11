@@ -22,6 +22,7 @@ interface ProductRow {
   price: number | null; tags: string[] | null; occasions: string[] | null;
   recipients: string[] | null; gender: string | null; affiliate_link: string; network: string | null;
   merchant_name: string | null;
+  style: string[] | null; gift_type: string[] | null; avoid_flags: string[] | null; primary_interest: string | null;
 }
 
 // Marker fields (__source/__productId) ride along so the submit route can tell a
@@ -44,6 +45,10 @@ function toGift(p: ProductRow): Gift {
     affiliate_url: p.affiliate_link,
     affiliate_network: p.network || "awin",
     active: true,
+    style: p.style || [],
+    gift_type: p.gift_type || [],
+    avoid_flags: p.avoid_flags || [],
+    primary_interest: p.primary_interest || null,
   };
   (g as any).__source = "product";
   (g as any).__productId = p.id;
@@ -53,7 +58,7 @@ function toGift(p: ProductRow): Gift {
 export async function loadProductCandidates(answers: QuizAnswers): Promise<Gift[]> {
   try {
     const admin = createServiceClient();
-    const cols = "id, title, description, image_url, price, tags, occasions, recipients, gender, affiliate_link, network, merchant_name";
+    const cols = "id, title, description, image_url, price, tags, occasions, recipients, gender, affiliate_link, network, merchant_name, style, gift_type, avoid_flags, primary_interest";
     const wantGender = (answers.gender || "").toLowerCase();
     const genders = wantGender === "male" || wantGender === "female" ? ["unisex", wantGender] : null;
     const band = BUDGET_BANDS[answers.budget];

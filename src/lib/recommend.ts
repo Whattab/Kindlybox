@@ -7,6 +7,7 @@ export interface QuizAnswers {
   gender: string;
   freeText?: string;
   recipientName?: string;
+  avoidFlags?: string[]; // interpreted "avoid" constraints (Step 4a/5a), e.g. "no alcohol"
 }
 
 export interface Gift {
@@ -25,6 +26,11 @@ export interface Gift {
   affiliate_url: string | null;
   affiliate_network: string | null;
   active: boolean;
+  // Step 4b taxonomy columns (optional — may be empty until an item is tagged).
+  style?: string[] | null;
+  gift_type?: string[] | null;
+  avoid_flags?: string[] | null;
+  primary_interest?: string | null;
 }
 
 export interface GiftScore {
@@ -53,7 +59,8 @@ const W = {
   maxInterests: 5,       // user picks up to 3; Step 4a adds interpreted free-text interests
 
   recipient: 20,
-  occasion: 18,
+  occasion: 18,          // generic occasions (birthday, anniversary…) — interest still leads
+  occasionSpecific: 42,  // specific occasions (baby shower, wedding…) must beat a lone interest
   freeTextToken: 6,      // max 4
   themeSignal: 8,        // max 3
   signalBonus: 6,
@@ -165,6 +172,15 @@ export function withinBudget(priceMin: number, budget: string): boolean {
   return ceil == null ? true : (priceMin ?? 0) <= ceil;
 }
 
+// Occasions where the gift must genuinely fit the event — a baby-shower gift
+// should be baby-appropriate even if a loosely-picked interest also matches. For
+// these, an occasion-tag match outscores a single interest; generic occasions
+// (birthday, anniversary…) keep the lower weight so interest still drives.
+const SPECIFIC_OCCASIONS = new Set(["baby shower", "wedding", "graduation", "promotion/retirement"]);
+export function occasionWeight(occasion: string): number {
+  return SPECIFIC_OCCASIONS.has((occasion || "").toLowerCase().trim()) ? W.occasionSpecific : W.occasion;
+}
+
 // Age matching. Products rarely carry an age, so we use keywords to (a) filter
 // obvious mismatches — kids' items for adults, alcohol/partner gifts for minors
 // — and (b) lightly boost milestone-specific gifts. Neutral products (most of
@@ -218,6 +234,8 @@ export function getRecommendations(
 ): GiftScore[] {
   const limit = options.limit ?? 3;
   const seed = options.seed ?? 1;
+  const occW = occasionWeight(answers.occasion);
+  const specificOccasion = occW === W.occasionSpecific;
 
   const freeText = (answers.freeText || "").trim().toLowerCase();
   const freeTextTokens = freeText
@@ -253,8 +271,12 @@ export function getRecommendations(
   });
 
   // Age filter: drop clear age mismatches. Most (neutral) products pass through.
+  // Exception: a baby-shower gift is FOR a baby, so the quiz's (adult) age group
+  // must not strip baby/kid items here — the specific-occasion gate keeps results
+  // on-theme instead.
   const wantAge = (answers.ageGroup || "").toLowerCase();
-  const ageFiltered = !wantAge ? occasionSafe : occasionSafe.filter(gift => {
+  const babyContext = (answers.occasion || "").toLowerCase() === "baby shower";
+  const ageFiltered = (!wantAge || babyContext) ? occasionSafe : occasionSafe.filter(gift => {
     const hay = [gift.name, gift.description, ...(gift.tags || [])].filter(Boolean).join(" ").toLowerCase();
     // Explicit milestone age must match the recipient's decade.
     const ms = milestoneAge(hay);
@@ -270,13 +292,22 @@ export function getRecommendations(
     return !hasKid;                                            // adult (20s+): no children's items
   });
 
+  // Stage A: drop gifts that trip the shopper's avoid flags (no alcohol, scent-
+  // sensitive, not into tech, …) — interpreted from free-text in Step 4a. A
+  // gift's avoid_flags are the constraints it violates.
+  const avoid = (answers.avoidFlags || []).map((a) => a.toLowerCase());
+  const safeFromAvoids = avoid.length === 0 ? ageFiltered : ageFiltered.filter((gift) => {
+    const flags = (gift.avoid_flags || []).map((f) => f.toLowerCase());
+    return !flags.some((f) => avoid.includes(f));
+  });
+
   // The best score these answers could possibly produce, so the percentage
   // means "how close to a perfect match", not a share of an arbitrary constant.
   const maxPossible = Math.max(
     MAX_SCORE_FLOOR,
     W.interestExact * Math.min(interests.length, W.maxInterests) +
       (answers.recipient ? W.recipient : 0) +
-      (answers.occasion ? W.occasion : 0) +
+      (answers.occasion ? occW : 0) +
       (freeTextTokens.length > 0 ? Math.min(freeTextTokens.length, 4) * W.freeTextToken : 0) +
       (themeSignals.length > 0 ? Math.min(themeSignals.length, 3) * W.themeSignal : 0) +
       (freeTextTokens.length > 0 || themeSignals.length > 0 ? W.signalBonus : 0) +
@@ -286,7 +317,7 @@ export function getRecommendations(
   );
 
   // 2. Score remaining gifts
-  const scoredGifts: GiftScore[] = ageFiltered.map(gift => {
+  const scoredGifts: GiftScore[] = safeFromAvoids.map(gift => {
     let score = 0;
     const reasons: string[] = [];
 
@@ -320,8 +351,9 @@ export function getRecommendations(
       reasons.push(`suits ${answers.recipient}`);
     }
 
-    if (listIncludes(gift.occasions, answers.occasion)) {
-      score += W.occasion;
+    const occasionMatch = listIncludes(gift.occasions, answers.occasion);
+    if (occasionMatch) {
+      score += occW;
       reasons.push(`fits ${answers.occasion}`);
     }
 
@@ -382,12 +414,18 @@ export function getRecommendations(
       // the "home" theme). Free-text/theme only stands in as the qualifier when
       // no interests were picked; demographics only when nothing at all was
       // given, so the quiz never dead-ends.
-      qualified:
-        interests.length > 0
-          ? interestHits > 0
-          : freeTextTokens.length > 0 || themeSignals.length > 0
-            ? signalHit
-            : listIncludes(gift.recipients, answers.recipient) || listIncludes(gift.occasions, answers.occasion),
+      // For a SPECIFIC occasion (baby shower, wedding…) only occasion-appropriate
+      // gifts qualify — a baby-shower gift must fit the event, not just a loosely
+      // picked interest. (If none match, the pick() fallback still returns the
+      // best-scoring gifts so the quiz never dead-ends.) Otherwise: interest
+      // match when interests were picked, else free-text/theme, else demographics.
+      qualified: specificOccasion
+        ? occasionMatch
+        : (interests.length > 0
+            ? interestHits > 0
+            : freeTextTokens.length > 0 || themeSignals.length > 0
+              ? signalHit
+              : occasionMatch || listIncludes(gift.recipients, answers.recipient)),
     };
   });
 
