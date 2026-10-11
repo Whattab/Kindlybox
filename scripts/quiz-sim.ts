@@ -15,6 +15,7 @@ import { config } from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import { getRecommendations, styleOf, type Gift, type QuizAnswers } from "../src/lib/recommend";
 import { isBlockedTitle } from "../src/lib/affiliate/blocklist";
+import { isMerchantExcluded } from "../src/lib/affiliate/merchant-exclusions";
 
 const useDev = process.argv.includes("--dev");
 config({ path: useDev ? ".env.dev.local" : ".env.local", override: true });
@@ -52,7 +53,10 @@ async function loadProductCandidates(answers: QuizAnswers): Promise<Gift[]> {
   const results = await Promise.all(queries);
   const map = new Map<string, any>();
   for (const r of results) for (const p of (r.data || [])) if (!map.has(p.id)) map.set(p.id, p);
-  return Array.from(map.values()).filter((p) => !isBlockedTitle(p.title, p.merchant_name)).map((p): Gift => {
+  return Array.from(map.values())
+    .filter((p) => !isBlockedTitle(p.title, p.merchant_name))
+    .filter((p) => !isMerchantExcluded(p.merchant_name, answers))
+    .map((p): Gift => {
     const price = Number(p.price) || 0;
     const g: Gift = {
       id: p.id, name: p.title, description: p.description || "", image_url: p.image_url || "",

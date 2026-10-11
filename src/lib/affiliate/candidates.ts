@@ -9,6 +9,7 @@
 import { createServiceClient } from "@/utils/supabase/admin";
 import type { Gift, QuizAnswers } from "@/lib/recommend";
 import { isBlockedTitle } from "./blocklist";
+import { isMerchantExcluded } from "./merchant-exclusions";
 
 const BUDGET_BANDS: Record<string, [number, number]> = {
   "under-25": [0, 25],
@@ -95,7 +96,12 @@ export async function loadProductCandidates(answers: QuizAnswers): Promise<Gift[
     // Brand-safety: drop titles matching the keyword blocklist (political,
     // offensive, medical-claim, trademarked). Applied here (not in SQL) because
     // the candidate set is already small and the match is whole-word in JS.
-    return Array.from(map.values()).filter((p) => !isBlockedTitle(p.title, p.merchant_name)).map(toGift);
+    // Also drop merchants excluded for this occasion/interest (curation lever,
+    // e.g. Printerval is never a baby-shower candidate).
+    return Array.from(map.values())
+      .filter((p) => !isBlockedTitle(p.title, p.merchant_name))
+      .filter((p) => !isMerchantExcluded(p.merchant_name, answers))
+      .map(toGift);
   } catch (e) {
     console.error("[candidates] loadProductCandidates failed (gifts-only):", (e as any)?.message || e);
     return [];
