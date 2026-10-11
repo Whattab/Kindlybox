@@ -5,15 +5,36 @@
 // for that occasion. This is more robust than tag cleanup: even if a feed sync
 // re-tags a Printerval item as "baby shower", the rule keeps it out.
 //
-// To add a rule: add the merchant (EXACT `merchant_name` as stored on products)
-// with the occasions and/or interests it should be excluded from.
+// ─── HOW TO ADD A RULE (owner-editable) ────────────────────────────────────
+// Add a line to MERCHANT_EXCLUSIONS below. The key is the EXACT merchant name,
+// the value lists the occasions and/or interests to hide that merchant from.
+// After editing, the change goes live on the next deploy (commit + push to
+// master, or ask Claude to deploy).
+//
+//   "PawFurEver": { occasions: ["baby shower", "wedding"] },
+//   "Printerval":  { occasions: ["baby shower"], interests: ["jewelry"] },
+//
+// VALID MERCHANT NAMES (exact — copy from here):
+//   BOOKSAMILLION.COM · Black Canyon Home & Body · Lucasgift - US · Printerval
+//   Flowers Fast.com-Send Flowers Same Day Delivery · Abracadabra NYC · BBBGEM
+//   Watches Of USA · LOOMY Home · Giftcards.com · PawFurEver
+//   Mosaic Weighted Blankets · GraphicAudio · Bond Touch
+//
+// VALID OCCASIONS:
+//   birthday · anniversary · graduation · baby shower · wedding · valentine's day
+//   promotion/retirement · house warming · mother's day · father's day · holidays
+//   thank you · sympathy · just because
+//
+// INTERESTS: any interest label (e.g. fashion & accessories, jewelry, pets,
+//   home & kitchen, gaming, …). Omit `interests` to block by occasion only.
+// ────────────────────────────────────────────────────────────────────────────
 
 interface ExclusionRule {
   occasions?: string[];  // quiz occasion values (e.g. "baby shower")
   interests?: string[];  // quiz interest labels (e.g. "fashion & accessories")
 }
 
-// Keys are exact product.merchant_name values.
+// Keys are exact product.merchant_name values. Add your rules here:
 export const MERCHANT_EXCLUSIONS: Record<string, ExclusionRule> = {
   Printerval: { occasions: ["baby shower"] },
 };
