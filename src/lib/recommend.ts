@@ -8,6 +8,7 @@ export interface QuizAnswers {
   freeText?: string;
   recipientName?: string;
   avoidFlags?: string[]; // interpreted "avoid" constraints (Step 4a/5a), e.g. "no alcohol"
+  giftFeel?: string;     // optional "feel" (Step 6 question): practical/sentimental/treat/experience/fun/surprise me
 }
 
 export interface Gift {
@@ -181,6 +182,49 @@ export function occasionWeight(occasion: string): number {
   return SPECIFIC_OCCASIONS.has((occasion || "").toLowerCase().trim()) ? W.occasionSpecific : W.occasion;
 }
 
+// ---- gift "feel" (Step 5b diversity) --------------------------------------
+// A single, salient style bucket per gift, used to vary the trio so a buyer
+// isn't shown three near-identical things. The curated gifts carry real `style`
+// tags; the 22k affiliate products don't yet (the deferred re-tag), so for them
+// we DERIVE a bucket deterministically from signals already on the row. Once a
+// product gets a real `style`, the first branch takes over — no code change.
+export type StyleBucket = "experience" | "sentimental" | "treat" | "fun" | "practical";
+const STYLE_FROM_TAG: Record<string, StyleBucket> = {
+  experience: "experience", sentimental: "sentimental", luxe: "treat", "fun quirky": "fun", practical: "practical",
+};
+// When an item carries several styles, keep the most distinctive one.
+const STYLE_PRIORITY: StyleBucket[] = ["experience", "sentimental", "treat", "fun", "practical"];
+const TREAT_WORDS = ["chocolate", "flower", "bouquet", "rose", "candle", "soap", "lotion", "candy", "cookie", "truffle", "strawberry", "wine", "champagne", "perfume", "cologne"];
+const SENTIMENTAL_WORDS = ["personalized", "personalised", "monogram", "custom", "engraved", "keepsake", "nameplate"];
+const FUN_WORDS = ["funny", "gag", "novelty", "meme", "prank", "joke", "anime"];
+const EXPERIENCE_WORDS = ["class", "workshop", "subscription", "voucher", "tour", "tasting"];
+
+export function styleOf(gift: Gift): StyleBucket {
+  const tags = (gift.style || []).map(normKey);
+  if (tags.length) {
+    for (const b of STYLE_PRIORITY) if (tags.some((t) => STYLE_FROM_TAG[t] === b)) return b;
+  }
+  const gt = (gift.gift_type || []).map(normKey);
+  if (gt.includes("experience") || gt.includes("digital")) return "experience";
+  const hay = [gift.name, gift.description, ...(gift.tags || [])].filter(Boolean).join(" ").toLowerCase();
+  if (gt.includes("personalized") || SENTIMENTAL_WORDS.some((w) => containsWord(hay, w))) return "sentimental";
+  if (EXPERIENCE_WORDS.some((w) => containsWord(hay, w)) || containsWord(hay, "gift card") || containsWord(hay, "giftcard")) return "experience";
+  if (gt.includes("consumable") || TREAT_WORDS.some((w) => containsWord(hay, w))) return "treat";
+  if (FUN_WORDS.some((w) => containsWord(hay, w))) return "fun";
+  return "practical";
+}
+
+// Maps a quiz "gift feel" answer to a bucket; null = "surprise me"/unknown → default mix.
+function feelBucket(feel: string): StyleBucket | null {
+  const f = (feel || "").toLowerCase();
+  if (f.includes("practical")) return "practical";
+  if (f.includes("sentimental")) return "sentimental";
+  if (f.includes("treat") || f.includes("luxe")) return "treat";
+  if (f.includes("experience")) return "experience";
+  if (f.includes("fun")) return "fun";
+  return null;
+}
+
 // Age matching. Products rarely carry an age, so we use keywords to (a) filter
 // obvious mismatches — kids' items for adults, alcohol/partner gifts for minors
 // — and (b) lightly boost milestone-specific gifts. Neutral products (most of
@@ -200,6 +244,16 @@ const MILESTONE_WORDS: Record<string, string[]> = {
   "50+": ["50th", "60th", "70th", "80th", "50 years", "60 years", "retirement"],
 };
 const isChildAge = (a: string) => a === "under12" || a === "13-19";
+
+// Avoid-flag hardening (Step 5b): most products don't carry the `avoid_flags`
+// tag yet (the deferred re-tag), so an interpreted "no alcohol" / "scent-
+// sensitive" shopper could still be shown a wine chiller or a candle. For the
+// two keyword-detectable flags we also exclude by interest tag + name/desc, so
+// the avoid promise holds regardless of tagging coverage.
+const AVOID_SIGNALS: Record<string, { tags: string[]; words: string[] }> = {
+  "no alcohol": { tags: ["wine & cocktails"], words: ["wine", "whiskey", "whisky", "beer", "vodka", "tequila", "bourbon", "cocktail", "liquor", "champagne", "prosecco", "rum", "gin", "brandy", "alcohol"] },
+  "scent-sensitive": { tags: [], words: ["candle", "cologne", "perfume", "incense", "fragrance", "scented", "diffuser", "potpourri"] },
+};
 
 // Never a fit for the quiz's celebratory occasions — excluded outright.
 const NEGATIVE_WORDS = ["sympathy", "funeral", "memorial", "condolence", "bereavement", "in loving memory"];
@@ -264,8 +318,11 @@ export function getRecommendations(
     return true; // "unknown" or unset quiz gender → no gender filtering
   });
 
-  // Always drop sympathy/funeral items — they don't fit any celebratory occasion.
-  const occasionSafe = genderedGifts.filter(gift => {
+  // Drop sympathy/funeral items — they don't fit any CELEBRATORY occasion. But
+  // for a sympathy occasion itself, condolence/memorial items are the point, so
+  // we keep them (the fun/quirky exclusion below handles that occasion's rule).
+  const isSympathy = (answers.occasion || "").toLowerCase().trim() === "sympathy";
+  const occasionSafe = isSympathy ? genderedGifts : genderedGifts.filter(gift => {
     const hay = [gift.name, gift.description].filter(Boolean).join(" ").toLowerCase();
     return !NEGATIVE_WORDS.some(w => containsWord(hay, w));
   });
@@ -298,8 +355,19 @@ export function getRecommendations(
   const avoid = (answers.avoidFlags || []).map((a) => a.toLowerCase());
   const safeFromAvoids = avoid.length === 0 ? ageFiltered : ageFiltered.filter((gift) => {
     const flags = (gift.avoid_flags || []).map((f) => f.toLowerCase());
-    return !flags.some((f) => avoid.includes(f));
+    if (flags.some((f) => avoid.includes(f))) return false;
+    // Keyword/tag fallback for flags whose items the tagger often misses.
+    const hay = [gift.name, gift.description].filter(Boolean).join(" ").toLowerCase();
+    const tags = (gift.tags || []).map(normKey);
+    return !avoid.some((a) => {
+      const sig = AVOID_SIGNALS[a];
+      if (!sig) return false;
+      return sig.tags.some((t) => tags.includes(normKey(t))) || sig.words.some((w) => containsWord(hay, w));
+    });
   });
+
+  // Stage A: a sympathy occasion never shows fun/quirky items (owner rule).
+  const stageA = !isSympathy ? safeFromAvoids : safeFromAvoids.filter((gift) => styleOf(gift) !== "fun");
 
   // The best score these answers could possibly produce, so the percentage
   // means "how close to a perfect match", not a share of an arbitrary constant.
@@ -317,7 +385,7 @@ export function getRecommendations(
   );
 
   // 2. Score remaining gifts
-  const scoredGifts: GiftScore[] = safeFromAvoids.map(gift => {
+  const scoredGifts: GiftScore[] = stageA.map(gift => {
     let score = 0;
     const reasons: string[] = [];
 
@@ -440,26 +508,55 @@ export function getRecommendations(
     return bBuy - aBuy; // equal-scoring gifts stay in shuffled order
   });
 
-  // 4. Take the top DISTINCT gifts. Deduping by name means duplicate catalogue
-  //    rows (e.g. the same gift imported twice) can never fill more than one
-  //    slot, so a buyer never sees the same suggestion repeated.
-  const seen = new Set<string>();
-  const pick = (pool: GiftScore[]) => {
-    const out: GiftScore[] = [];
-    for (const scored of pool) {
-      const key = (scored.gift.name || "").trim().toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push(scored);
-      if (out.length === limit) break;
+  // 4. Take the top DISTINCT gifts, with VARIETY (Step 5b). Within the relevant
+  //    (near-top) set we prefer a different "feel" per slot so the buyer isn't
+  //    shown three near-identical things — but we never trade real relevance for
+  //    variety: when the shortlist is stylistically uniform (e.g. a focused
+  //    "coffee" quiz), this degrades to plain top-by-score. Deduping by name
+  //    keeps a duplicated catalogue row from filling more than one slot.
+  const DIVERSITY_WINDOW = 8; // ~ one interest tier; only vary among items this close to the best
+  const feel = feelBucket(answers.giftFeel || "");
+  const pickDiverse = (pool: GiftScore[]): GiftScore[] => {
+    const deduped: GiftScore[] = [];
+    const nameSeen = new Set<string>();
+    for (const s of pool) {
+      const key = (s.gift.name || "").trim().toLowerCase();
+      if (key && nameSeen.has(key)) continue;
+      if (key) nameSeen.add(key);
+      deduped.push(s);
     }
-    return out;
+    if (deduped.length <= limit) return deduped.slice(0, limit);
+
+    const out: GiftScore[] = [];
+    const picked = new Set<GiftScore>();
+    const take = (s: GiftScore) => { out.push(s); picked.add(s); };
+
+    if (feel) {
+      // Gift feel chosen (Step 6): most picks match it, then a wildcard.
+      for (const s of deduped) { if (out.length >= limit - 1) break; if (styleOf(s.gift) === feel) take(s); }
+      for (const s of deduped) { if (out.length >= limit) break; if (!picked.has(s) && styleOf(s.gift) !== feel) take(s); }
+    } else {
+      // Default mix: one gift per distinct feel, chosen among near-top items only.
+      const top = deduped[0].score;
+      const shortlist = deduped.filter((s) => s.score >= top - DIVERSITY_WINDOW);
+      const usedBuckets = new Set<StyleBucket>();
+      for (const s of shortlist) {
+        if (out.length >= limit) break;
+        const b = styleOf(s.gift);
+        if (usedBuckets.has(b)) continue;
+        usedBuckets.add(b);
+        take(s);
+      }
+    }
+    // Fill any remaining slots with the best-scoring leftovers (relevance first).
+    for (const s of deduped) { if (out.length >= limit) break; if (!picked.has(s)) take(s); }
+    return out.slice(0, limit);
   };
 
   // Prefer genuine matches, and return FEWER rather than padding the list with
   // gifts that don't match what the shopper asked for. Only when nothing
   // qualifies at all do we fall back, so the quiz never dead-ends.
-  const qualified = pick(shuffled.filter((s) => s.qualified));
+  const qualified = pickDiverse(shuffled.filter((s) => s.qualified));
   if (qualified.length > 0) return qualified;
-  return pick(shuffled);
+  return pickDiverse(shuffled);
 }
