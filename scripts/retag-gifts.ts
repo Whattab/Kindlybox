@@ -30,8 +30,8 @@ const arr = (a: string[] | null | undefined) => (a && a.length ? a.join(", ") : 
 // Show removed (−) and added (+) between the current list and the proposed one.
 function diff(label: string, cur: string[] | null | undefined, next: string[]): string | null {
   const c = new Set(cur || []), n = new Set(next);
-  const removed = [...c].filter((x) => !n.has(x));
-  const added = [...n].filter((x) => !c.has(x));
+  const removed = (cur || []).filter((x) => !n.has(x));
+  const added = next.filter((x) => !c.has(x));
   if (!removed.length && !added.length) return null;
   return `    ${label}: ${arr(cur)}  →  ${arr(next)}` + (removed.length ? `   −[${removed.join(", ")}]` : "") + (added.length ? `   +[${added.join(", ")}]` : "");
 }
