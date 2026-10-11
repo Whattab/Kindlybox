@@ -7,6 +7,8 @@ const vocab: Vocab = {
   avoidLabels: ["no alcohol", "minimalist", "scent-sensitive"],
   styleLabels: ["practical", "sentimental", "luxe", "fun & quirky", "experience"],
   giftTypeLabels: ["physical", "consumable", "experience", "personalized", "digital"],
+  occasionLabels: ["birthday", "baby shower", "wedding", "sympathy"],
+  recipientLabels: ["him", "her", "child", "friend"],
   subInterest: new Set(["coffee", "baking", "dogs", "yoga"]),
   synonyms: [
     { phrase: "espresso", label: "coffee", dimension: "interest" },
@@ -49,6 +51,23 @@ describe("finalizeItemTags", () => {
     expect(out.primary_interest).toBe("coffee");
     expect(out.style).toEqual(["practical"]);
     expect(out.gift_type).toEqual(["physical"]);
+  });
+
+  it("validates + caps occasions and recipients against the vocabulary", () => {
+    const out = finalizeItemTags(
+      [{ occasions: ["baby shower", "made up", "wedding", "birthday", "sympathy"], recipients: ["child", "alien", "friend"] }],
+      vocab,
+    );
+    expect(out.occasions).toEqual(["baby shower", "wedding", "birthday"]); // "made up" dropped, capped at 3
+    expect(out.recipients).toEqual(["child", "friend"]);                   // "alien" dropped
+  });
+
+  it("caps interests at 4 to curb magnet over-tagging", () => {
+    const out = finalizeItemTags(
+      [{ interests: ["home & kitchen", "coffee", "baking", "gardening", "pets"] }],
+      vocab,
+    );
+    expect(out.interests).toHaveLength(4);
   });
 });
 
