@@ -87,3 +87,67 @@ describe("styleOf fallback (products carry no style tag yet)", () => {
     expect(styleOf(g({ name: "Funny Bouquet", style: ["practical"] }))).toBe("practical");
   });
 });
+
+describe("Step 6 relationship rules + experience level", () => {
+  const romantic = g({ name: "Romantic Couples Massage Kit", tags: ["fitness & wellness"] });
+  const luxe = g({ name: "Silk Robe", tags: ["fitness & wellness"], style: ["luxe"] });
+  const plain = g({ name: "Yoga Mat", tags: ["fitness & wellness"] });
+  const ans: QuizAnswers = { ...base, interests: ["fitness & wellness"] };
+
+  it("leaves results alone when the flags are unset (v1 unchanged)", () => {
+    expect(names(getRecommendations(ans, [romantic, luxe, plain], { seed: 1, limit: 3 }))).toHaveLength(3);
+  });
+  it("excludeIntimate drops romantic items (child / coworker)", () => {
+    const out = names(getRecommendations({ ...ans, excludeIntimate: true }, [romantic, luxe, plain], { seed: 1, limit: 3 }));
+    expect(out).not.toContain("Romantic Couples Massage Kit");
+    expect(out).toContain("Silk Robe");
+  });
+  it("excludeLuxe drops luxe-styled items (child)", () => {
+    const out = names(getRecommendations({ ...ans, excludeLuxe: true }, [romantic, luxe, plain], { seed: 1, limit: 3 }));
+    expect(out).not.toContain("Silk Robe");
+  });
+  it("'has all the gear' favours consumables / experiences over another starter item", () => {
+    const starter = g({ name: "Beginner Fly Rod", tags: ["fishing"] });
+    const flies = g({ name: "Premium Fly Assortment", tags: ["fishing"], gift_type: ["consumable"] });
+    const recs = getRecommendations({ ...base, interests: ["fishing"], experienceLevel: "expert" }, [starter, flies], { seed: 1, limit: 2 });
+    expect(recs[0].gift.name).toBe("Premium Fly Assortment");
+  });
+  it("new adult life-stage age groups filter mismatched milestone items", () => {
+    const m40 = g({ name: "40th Birthday Mug", tags: ["home & kitchen"] });
+    const m70 = g({ name: "70th Birthday Mug", tags: ["home & kitchen"] });
+    const out = names(getRecommendations({ ...base, interests: ["home & kitchen"], ageGroup: "30s-40s" }, [m40, m70], { seed: 1, limit: 2 }));
+    expect(out).toEqual(["40th Birthday Mug"]);
+  });
+});
+
+describe("gift feel (Step 6 question)", () => {
+  const ans: QuizAnswers = { ...base, interests: ["coffee", "home & kitchen"], giftFeel: "treat" };
+  it("2 of 3 picks match the chosen feel when they're relevant", () => {
+    const pool = [
+      g({ name: "Coffee Grinder", tags: ["coffee", "home & kitchen"], style: ["practical"] }),
+      g({ name: "Coffee Truffles", tags: ["coffee", "home & kitchen"], style: ["luxe"] }),
+      g({ name: "Espresso Gift Box", tags: ["coffee", "home & kitchen"], style: ["luxe"] }),
+      g({ name: "Coffee Scale", tags: ["coffee", "home & kitchen"], style: ["practical"] }),
+    ];
+    const recs = getRecommendations(ans, pool, { seed: 1, limit: 3 });
+    expect(recs.filter((r) => styleOf(r.gift) === "treat")).toHaveLength(2);
+  });
+  it("never trades a whole interest tier for the feel", () => {
+    const pool = [
+      g({ name: "Coffee Grinder", tags: ["coffee", "home & kitchen"], style: ["practical"] }),
+      g({ name: "Pour Over", tags: ["coffee", "home & kitchen"], style: ["practical"] }),
+      g({ name: "Coffee Scale", tags: ["coffee", "home & kitchen"], style: ["practical"] }),
+      g({ name: "Chocolate Bouquet", description: "a kitchen treat", style: ["luxe"] }), // partial match only
+    ];
+    expect(names(getRecommendations(ans, pool, { seed: 1, limit: 3 }))).not.toContain("Chocolate Bouquet");
+  });
+  it("treats 'Name - variant' rows as one gift", () => {
+    const pool = [
+      g({ name: "Lavender Bouquet - Standard", tags: ["coffee"] }),
+      g({ name: "Lavender Bouquet - Deluxe", tags: ["coffee"] }),
+      g({ name: "Coffee Mug", tags: ["coffee"] }),
+    ];
+    const out = names(getRecommendations({ ...base, interests: ["coffee"] }, pool, { seed: 1, limit: 3 }));
+    expect(out.filter((n) => n.startsWith("Lavender"))).toHaveLength(1);
+  });
+});

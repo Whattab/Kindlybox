@@ -249,6 +249,16 @@ The quiz submit awaits 3 Gemini calls and an email send before responding. Both 
 - **Deterministic baby-shower cleanup (applied to prod)** via `scripts/clean-baby-shower-tags.ts`: removed `baby shower` from **323** products with non-newborn themes (sport/gaming/adult-hobby titles) or adult apparel/jewelry lacking infant-sizing words. **Result:** baby-shower quiz returns a kids-clothing eGift card + nursery items, not dog licenses / adult hoodies / dirt-bike tees.
 - **Still available if wanted:** the full/targeted AI re-tag (`scripts/ai-tag-products.ts`, resumable via the `20261010_product_ai_tagged_at` migration) — good for filling `style` catalogue-wide, but 5b derives `style` fine, so it's optional. Awin dead-image fix still deferred.
 
+### Step 6 — branching quiz, split into 6a–6d (approved 2026-10-11)
+6a foundation → 6b new quiz screens + switch (`QUIZ_V2_PERCENT`, `?quiz=v1|v2`) → 6c "Email me these picks" on results → 6d retire v1. Owner choices: optional him/her/either chip on S1 (not for mom/dad); email capture moves to results (v2 only); env-var switch, no migration. v1 stays only as a fallback until v2 is proven.
+
+### Step 6a — ✅ on branch `step-6a` (2026-10-11) — no visitor-facing change
+- **Question graph as data** ([graph.ts](src/lib/quiz-v2/graph.ts)): S1–S7 per decisions §4 — relationship + life stage + optional gender, occasion options that depend on S1 (anniversary/Valentine's for partner, graduation for child/teen/20s, Mother's/Father's Day for mom/dad), "free Saturday" (≤2), depth + "how into it" (depth options hidden below 10 products), gift feel, budget + avoids, free text. Sympathy skips S3–S4 and never offers "fun". `pruneState` drops answers invalidated by an earlier change.
+- **Answer mapping** ([map.ts](src/lib/quiz-v2/map.ts)): v2 answers → existing `QuizAnswers` (recommender, candidates, personalize unchanged). Child → no alcohol + no intimate + no luxe; coworker → no intimate. **URL prefill normaliser** now understands reminder-email values v1 silently ignored (`partner`, `colleague`, `christmas`, `new baby`, `housewarming`) and still accepts v1 values.
+- **Recommender** ([recommend.ts](src/lib/recommend.ts)): new optional `experienceLevel` ("has all the gear" → small boost for consumables/experiences/luxe), `excludeIntimate`, `excludeLuxe`; adult life-stage age ranges (`30s-40s`, `50s-60s`, `70+`). **Gift-feel fix:** a chosen feel now only applies within 20 points of the best score (a "treat for a coffee lover" was returning chocolates over coffee gear). **Dedupe fix:** "Name - variant" rows count as one gift (a sympathy trio showed the same bouquet twice). These two fixes are the only v1-visible changes (dedupe; v1 never sets a feel).
+- **Sim** ([quiz-sim.ts](scripts/quiz-sim.ts)): 6 v2 scenarios through the real mapper + `--depth-counts`. 92 unit tests pass; tsc clean for touched files.
+- **Known (catalogue, not quiz):** depth tags are rare on products — only gardening (468), gaming (44), coffee (11), audio (11) clear the 10+ bar, so S4 mostly hides until the deferred product re-tag runs. No products tagged fishing/hiking/camping/baking, so "fisherman dad" falls back to novelty apparel; sympathy has few fitting items.
+
 ---
 
 ## 5. Open questions for you

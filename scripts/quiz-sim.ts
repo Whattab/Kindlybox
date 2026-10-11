@@ -16,6 +16,8 @@ import { createClient } from "@supabase/supabase-js";
 import { getRecommendations, styleOf, type Gift, type QuizAnswers } from "../src/lib/recommend";
 import { isBlockedTitle } from "../src/lib/affiliate/blocklist";
 import { isMerchantExcluded } from "../src/lib/affiliate/merchant-exclusions";
+import { ALL_DEPTH_IDS, EMPTY_STATE, MIN_DEPTH_PRODUCTS, type V2State } from "../src/lib/quiz-v2/graph";
+import { toQuizAnswers } from "../src/lib/quiz-v2/map";
 
 const useDev = process.argv.includes("--dev");
 config({ path: useDev ? ".env.dev.local" : ".env.local", override: true });
@@ -31,7 +33,18 @@ const SCENARIOS: Scenario[] = [
   { name: "coffee", answers: { recipient: "her", occasion: "birthday", interests: ["home & kitchen", "coffee"], budget: "50-100", ageGroup: "", gender: "female", freeText: "obsessed with coffee" } },
   { name: "no-alcohol", answers: { recipient: "her", occasion: "birthday", interests: ["home & kitchen"], budget: "50-100", ageGroup: "", gender: "female", freeText: "", avoidFlags: ["no alcohol"] } },
   { name: "sympathy", answers: { recipient: "friend", occasion: "sympathy", interests: [], budget: "50-100", ageGroup: "", gender: "unknown", freeText: "lost her mother" } },
+  // Step 6 branching quiz (v2): answers go through the real v2 → recommender mapper.
+  { name: "v2-coffee-mom", answers: toQuizAnswers(v2({ relationship: "mom", lifeStage: "50s-60s", occasion: "mother's day", saturday: ["kitchen"], depth: ["coffee"], level: "expert", feel: "treat", budget: "50-100" })) },
+  { name: "v2-sympathy-friend", answers: toQuizAnswers(v2({ relationship: "friend", gender: "her", occasion: "sympathy", feel: "sentimental", budget: "50-100", freeText: "lost her mother" })) },
+  { name: "v2-baby-shower", answers: toQuizAnswers(v2({ relationship: "friend", gender: "her", lifeStage: "30s-40s", occasion: "new baby", saturday: ["relaxing"], feel: "practical", budget: "50-100" })) },
+  { name: "v2-teen-gamer", answers: toQuizAnswers(v2({ relationship: "child", lifeStage: "teen", gender: "him", occasion: "birthday", saturday: ["gadgets"], depth: ["gaming"], feel: "fun", budget: "25-50" })) },
+  { name: "v2-coworker", answers: toQuizAnswers(v2({ relationship: "coworker", occasion: "thank you", saturday: ["reading", "hosting"], feel: "surprise", budget: "under-25" })) },
+  { name: "v2-fisherman-dad", answers: toQuizAnswers(v2({ relationship: "dad", lifeStage: "70+", occasion: "father's day", saturday: ["outdoors"], depth: ["fishing"], level: "beginner", feel: "practical", budget: "100-200" })) },
 ];
+
+function v2(o: Partial<V2State>): V2State {
+  return { ...EMPTY_STATE, ...o };
+}
 
 async function loadProductCandidates(answers: QuizAnswers): Promise<Gift[]> {
   const cols = "id, title, description, image_url, price, tags, occasions, recipients, gender, affiliate_link, network, merchant_name, style, gift_type, avoid_flags, primary_interest";
@@ -70,7 +83,21 @@ async function loadProductCandidates(answers: QuizAnswers): Promise<Gift[]> {
   });
 }
 
+// `--depth-counts`: approved, in-stock products per S4 depth option — the
+// branching quiz only offers options with MIN_DEPTH_PRODUCTS or more.
+async function depthCounts() {
+  for (const id of ALL_DEPTH_IDS) {
+    const { count } = await db.from("products").select("id", { count: "exact", head: true })
+      .eq("active", true).eq("in_stock", true).eq("status", "approved").contains("tags", [id]);
+    const { count: giftCount } = await db.from("gifts").select("id", { count: "exact", head: true }).eq("active", true).contains("tags", [id]);
+    const total = (count || 0) + (giftCount || 0);
+    console.log(`  ${total >= MIN_DEPTH_PRODUCTS ? "show" : "HIDE"}  ${id.padEnd(18)} ${total} (${count || 0} products + ${giftCount || 0} gifts)`);
+  }
+  process.exit(0);
+}
+
 async function run() {
+  if (process.argv.includes("--depth-counts")) return depthCounts();
   const only = process.argv.find((a) => !a.startsWith("-") && SCENARIOS.some((s) => s.name === a));
   const { data: gifts } = await db.from("gifts").select("*").eq("active", true);
   for (const sc of SCENARIOS.filter((s) => !only || s.name === only)) {
