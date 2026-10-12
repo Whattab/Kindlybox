@@ -7,9 +7,50 @@
 
 import type { QuizAnswers } from "../recommend";
 import {
-  EMPTY_STATE, MAX_SATURDAY, pruneState,
-  type Budget, type GraphContext, type LifeStage, type OccasionV2, type Relationship, type Saturday, type V2State,
+  AVOIDS, BUDGETS, DEPTH, EMPTY_STATE, GENDERS, LEVELS, MAX_SATURDAY, RELATIONSHIPS, SATURDAYS, pruneState,
+  type Budget, type GraphContext, type LifeStage, type Option, type OccasionV2, type Relationship, type Saturday, type V2State,
 } from "./graph";
+
+// ── untrusted JSON → V2State ──────────────────────────────────────────────
+
+const ALL_STAGES: LifeStage[] = ["baby", "toddler", "kid", "tween", "teen", "20s", "30s-40s", "50s-60s", "70+"];
+const ALL_OCCASIONS: OccasionV2[] = [
+  "birthday", "holidays", "thank you", "housewarming", "retirement", "wedding", "new baby", "sympathy",
+  "just because", "anniversary", "valentine's day", "graduation", "mother's day", "father's day",
+];
+const ALL_FEELS = ["practical", "sentimental", "treat", "fun", "experience", "surprise"] as const;
+const ALL_DEPTH = Object.values(DEPTH).flatMap((o) => (o || []).map((x) => x.id));
+
+const str = (v: unknown, max = 500) => (typeof v === "string" ? v.slice(0, max) : "");
+const pick = <T extends string>(v: unknown, allowed: readonly T[]): T | "" =>
+  typeof v === "string" && (allowed as readonly string[]).includes(v) ? (v as T) : "";
+const ids = (opts: Option[]) => opts.map((o) => o.id);
+const list = (v: unknown, allowed: readonly string[], max: number): string[] =>
+  Array.isArray(v) ? Array.from(new Set(v.filter((x): x is string => typeof x === "string" && allowed.includes(x)))).slice(0, max) : [];
+
+/**
+ * Validate a v2 state posted by the browser. Every field is checked against the
+ * graph's own option lists, then pruned so cross-field rules hold (e.g. no
+ * anniversary unless partner). Never trust the client's mapping — the server
+ * maps answers itself via toQuizAnswers.
+ */
+export function parseV2State(raw: unknown): V2State {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return pruneState({
+    relationship: pick(r.relationship, ids(RELATIONSHIPS) as Relationship[]),
+    lifeStage: pick(r.lifeStage, ALL_STAGES),
+    gender: pick(r.gender, ids(GENDERS) as V2State["gender"][]),
+    recipientName: str(r.recipientName, 80),
+    occasion: pick(r.occasion, ALL_OCCASIONS),
+    saturday: list(r.saturday, ids(SATURDAYS), MAX_SATURDAY) as Saturday[],
+    depth: list(r.depth, ALL_DEPTH, ALL_DEPTH.length),
+    level: pick(r.level, ids(LEVELS) as V2State["level"][]),
+    feel: pick(r.feel, ALL_FEELS),
+    budget: pick(r.budget, ids(BUDGETS) as Budget[]),
+    avoids: list(r.avoids, ids(AVOIDS), AVOIDS.length),
+    freeText: str(r.freeText, 1000),
+  });
+}
 
 // ── answers → recommender ─────────────────────────────────────────────────
 

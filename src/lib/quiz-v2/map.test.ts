@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { EMPTY_STATE, type V2State } from "./graph";
-import { prefillFromParams, toQuizAnswers } from "./map";
+import { parseV2State, prefillFromParams, toQuizAnswers } from "./map";
 
 const st = (o: Partial<V2State>): V2State => ({ ...EMPTY_STATE, ...o });
 
@@ -70,5 +70,29 @@ describe("prefillFromParams", () => {
   });
   it("drops an occasion the relationship doesn't allow", () => {
     expect(prefillFromParams({ recipient: "friend", occasion: "anniversary" }).occasion).toBe("");
+  });
+});
+
+describe("parseV2State (untrusted browser JSON)", () => {
+  it("keeps valid answers", () => {
+    const s = parseV2State({ relationship: "partner", gender: "her", occasion: "anniversary", saturday: ["kitchen"], depth: ["coffee"], feel: "treat", budget: "50-100", avoids: ["no alcohol"], freeText: "loves lattes" });
+    expect(s).toMatchObject({ relationship: "partner", gender: "her", occasion: "anniversary", saturday: ["kitchen"], depth: ["coffee"], feel: "treat", budget: "50-100", avoids: ["no alcohol"], freeText: "loves lattes" });
+  });
+  it("drops junk values and wrong types", () => {
+    const s = parseV2State({ relationship: "boss man", gender: 7, budget: "1000000", feel: ["fun"], saturday: "kitchen", avoids: ["no alcohol", "drop table"], occasion: null });
+    expect(s).toMatchObject({ relationship: "", gender: "", budget: "", feel: "", saturday: [], avoids: ["no alcohol"], occasion: "" });
+  });
+  it("caps Saturday picks at 2 and trims long text", () => {
+    const s = parseV2State({ saturday: ["kitchen", "outdoors", "pets"], freeText: "x".repeat(5000), recipientName: "y".repeat(500) });
+    expect(s.saturday).toEqual(["kitchen", "outdoors"]);
+    expect(s.freeText.length).toBe(1000);
+    expect(s.recipientName.length).toBe(80);
+  });
+  it("applies cross-field rules (no anniversary for a friend)", () => {
+    expect(parseV2State({ relationship: "friend", occasion: "anniversary" }).occasion).toBe("");
+  });
+  it("handles non-object input", () => {
+    expect(parseV2State(null).relationship).toBe("");
+    expect(parseV2State("v2").saturday).toEqual([]);
   });
 });
