@@ -258,6 +258,14 @@ The quiz submit awaits 3 Gemini calls and an email send before responding. Both 
 - **Recommender** ([recommend.ts](src/lib/recommend.ts)): new optional `experienceLevel` ("has all the gear" → small boost for consumables/experiences/luxe), `excludeIntimate`, `excludeLuxe`; adult life-stage age ranges (`30s-40s`, `50s-60s`, `70+`). **Gift-feel fix:** a chosen feel now only applies within 20 points of the best score (a "treat for a coffee lover" was returning chocolates over coffee gear). **Dedupe fix:** "Name - variant" rows count as one gift (a sympathy trio showed the same bouquet twice). These two fixes are the only v1-visible changes (dedupe; v1 never sets a feel).
 - **Sim** ([quiz-sim.ts](scripts/quiz-sim.ts)): 6 v2 scenarios through the real mapper + `--depth-counts`. 92 unit tests pass; tsc clean for touched files.
 - **Known (catalogue, not quiz):** depth tags are rare on products — only gardening (468), gaming (44), coffee (11), audio (11) clear the 10+ bar, so S4 mostly hides until the deferred product re-tag runs. No products tagged fishing/hiking/camping/baking, so "fisherman dad" falls back to novelty apparel; sympathy has few fitting items.
+- **Merged to master** (`c2fef59`).
+
+### Step 6b — ✅ on branch `step-6b` (2026-10-12) — ships OFF (v1 for all visitors)
+- **Switch** ([version.ts](src/lib/quiz-v2/version.ts), [quiz page](src/app/quiz/page.tsx)): `?quiz=v1|v2` override → `kb_quiz` cookie (90 days, written by `QuizVersionCookie`) → `QUIZ_V2_PERCENT` (unset/0 = everyone v1). Extra **emergency stop** `QUIZ_V2_OFF=1` forces v1 for everyone, ignoring cookies and URL (cookies would otherwise keep earlier v2 visitors on v2).
+- **New quiz UI** ([QuizFlowV2.tsx](src/components/quiz/v2/QuizFlowV2.tsx)): renders the 6a graph; answers re-pruned on every change; Back follows visited screens; progress counts only visible screens. Keeps v1's email step until 6c.
+- **Depth availability** ([depth-available.ts](src/lib/quiz-v2/depth-available.ts)): counts per depth tag, cached 24h, failure not cached and fails open. Live today: gardening, coffee, audio, gaming.
+- **Submit** ([route](src/app/api/quiz/submit/route.ts)): v2 posts raw state; server validates (`parseV2State`) and maps (`toQuizAnswers`); shopper avoid chips merge with interpreted ones; gift feel / level / relationship rules reach the recommender. Session stores mapped answers top-level (results page unchanged) + `quizVersion: "v2"` + raw `v2`. v1 requests unchanged.
+- **Verified:** 103 unit tests; tsc clean for touched files (one pre-existing error on the v1 prefill line in `quiz/page.tsx`); lint clean for new files. Local server (prod data, read-only): `/quiz` → v1; `?quiz=v2` → v2; cookie keeps v2; partner prefill shows gender + age chips. **Not yet done:** a full click-through + submit (prod writes a session and sends an email; dev DB is empty) — owner previews on prod via `?quiz=v2` after deploy.
 
 ---
 

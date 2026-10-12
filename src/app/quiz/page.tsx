@@ -1,5 +1,11 @@
 import { createClient } from "@/utils/supabase/server";
 import { QuizFlow } from "@/components/quiz/QuizFlow";
+import { QuizFlowV2 } from "@/components/quiz/v2/QuizFlowV2";
+import { QuizVersionCookie } from "@/components/quiz/v2/QuizVersionCookie";
+import { chooseQuizVersion, QUIZ_COOKIE } from "@/lib/quiz-v2/version";
+import { getAvailableDepth } from "@/lib/quiz-v2/depth-available";
+import { prefillFromParams } from "@/lib/quiz-v2/map";
+import { cookies } from "next/headers";
 import Link from "next/link";
 
 export default async function QuizPage({
@@ -11,6 +17,16 @@ export default async function QuizPage({
   const { data: { session } } = await supabase.auth.getSession();
 
   const userEmail = session?.user?.email || null;
+
+  // Step 6 switch: old (v1) or branching (v2) quiz — see lib/quiz-v2/version.ts.
+  const { version, remember } = chooseQuizVersion({
+    override: searchParams?.quiz,
+    cookie: cookies().get(QUIZ_COOKIE)?.value,
+    percent: process.env.QUIZ_V2_PERCENT,
+    killSwitch: process.env.QUIZ_V2_OFF,
+  });
+  const depthAvailable = version === "v2" ? await getAvailableDepth() : [];
+
   const initialValues = {
     recipient: typeof searchParams?.recipient === "string" ? searchParams.recipient : undefined,
     occasion: typeof searchParams?.occasion === "string" ? searchParams.occasion : undefined,
@@ -58,7 +74,16 @@ export default async function QuizPage({
           </p>
         </div>
         
-        <QuizFlow userEmail={userEmail} initialValues={initialValues} />
+        {remember && <QuizVersionCookie version={version} />}
+        {version === "v2" ? (
+          <QuizFlowV2
+            userEmail={userEmail}
+            initialState={prefillFromParams(searchParams || {})}
+            depthAvailable={depthAvailable}
+          />
+        ) : (
+          <QuizFlow userEmail={userEmail} initialValues={initialValues} />
+        )}
       </div>
     </main>
   );

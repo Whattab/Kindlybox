@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { getRecommendations } from "@/lib/recommend";
+import { getRecommendations, type QuizAnswers } from "@/lib/recommend";
+import { parseV2State, toQuizAnswers } from "@/lib/quiz-v2/map";
 import { loadProductCandidates } from "@/lib/affiliate/candidates";
 import { generatePersonalizedReasons } from "@/lib/personalize";
 import { interpretFreeText } from "@/lib/ai-tags";
@@ -22,7 +23,15 @@ export async function POST(request: Request) {
   try {
     const supabase = createClient();
     const body = await request.json();
-    const { recipient, occasion, interests, budget, firstName, email, ageGroup, gender, freeText, recipientName } = body;
+    const { firstName, email } = body;
+
+    // Branching quiz (Step 6): the browser sends its raw v2 state; the SERVER
+    // validates and maps it to the recommender's answers (never trust a
+    // client-side mapping). v1 posts its answers directly, as before.
+    const isV2 = body.quizVersion === "v2";
+    const v2State = isV2 ? parseV2State(body.v2) : null;
+    const v2Answers: QuizAnswers | null = v2State ? toQuizAnswers(v2State) : null;
+    const { recipient, occasion, interests, budget, ageGroup, gender, freeText, recipientName } = v2Answers ?? body;
 
     // 1. Authenticate (optional for quiz)
     const { data: { user } } = await supabase.auth.getUser();
@@ -55,8 +64,16 @@ export async function POST(request: Request) {
 
     // The seed rotates which of several equally-good gifts get shown, so two
     // people giving identical answers don't always see the exact same three.
+    // v2 adds the shopper's avoid chips, gift feel, level and relationship rules.
+    const avoidFlags = Array.from(new Set([...(v2Answers?.avoidFlags || []), ...interpreted.avoid_flags]));
     const recommendations = getRecommendations(
-      { recipient, occasion, interests: effectiveInterests, budget, ageGroup, gender, freeText, avoidFlags: interpreted.avoid_flags },
+      {
+        recipient, occasion, interests: effectiveInterests, budget, ageGroup, gender, freeText, avoidFlags,
+        giftFeel: v2Answers?.giftFeel,
+        experienceLevel: v2Answers?.experienceLevel,
+        excludeIntimate: v2Answers?.excludeIntimate,
+        excludeLuxe: v2Answers?.excludeLuxe,
+      },
       catalogue,
       { seed: Date.now() },
     );
@@ -71,7 +88,12 @@ export async function POST(request: Request) {
       .insert([
         {
           user_id: user?.id || null,
-          answers: { recipient, occasion, interests, budget, ageGroup, gender, freeText, recipientName, interpreted },
+          // Mapped answers stay top-level (the results page reads them); v2 also
+          // keeps its raw state + version so old and new quizzes can be compared.
+          answers: {
+            recipient, occasion, interests, budget, ageGroup, gender, freeText, recipientName, interpreted,
+            ...(v2State ? { quizVersion: "v2", v2: v2State, avoidFlags, giftFeel: v2Answers?.giftFeel } : {}),
+          },
           email_captured: user ? user.email : email,
           first_name_captured: user ? user.user_metadata?.first_name : firstName,
         }
