@@ -266,6 +266,14 @@ The quiz submit awaits 3 Gemini calls and an email send before responding. Both 
 - **Depth availability** ([depth-available.ts](src/lib/quiz-v2/depth-available.ts)): counts per depth tag, cached 24h, failure not cached and fails open. Live today: gardening, coffee, audio, gaming.
 - **Submit** ([route](src/app/api/quiz/submit/route.ts)): v2 posts raw state; server validates (`parseV2State`) and maps (`toQuizAnswers`); shopper avoid chips merge with interpreted ones; gift feel / level / relationship rules reach the recommender. Session stores mapped answers top-level (results page unchanged) + `quizVersion: "v2"` + raw `v2`. v1 requests unchanged.
 - **Verified:** 103 unit tests; tsc clean for touched files (one pre-existing error on the v1 prefill line in `quiz/page.tsx`); lint clean for new files. Local server (prod data, read-only): `/quiz` → v1; `?quiz=v2` → v2; cookie keeps v2; partner prefill shows gender + age chips. **Not yet done:** a full click-through + submit (prod writes a session and sends an email; dev DB is empty) — owner previews on prod via `?quiz=v2` after deploy.
+- **Deployed** 2026-10-12 (`9e22b57`; first push was blocked by Vercel Hobby because commits carried a Co-Authored-By trailer — see GO-LIVE.md).
+
+### Step 6b fixes — from the owner's phone test (2026-10-12, branch `step-6b-fixes`)
+- **Mobile scroll:** each new screen opened scrolled down with its question above the fold (owner missed Anniversary/Valentine's, which were present). Now scrolls to the top on every step; picking Child scrolls to a prominent "How old are they?" with a "Pick their age to continue" hint. Verified in Edge at 390×844.
+- **Pet supplies** (a dog joint supplement for a fit partner) only show when the shopper picked pets or mentioned an animal.
+- **Young children** no longer get adult tees/hoodies; kid-sizing is read from the **title** (Printerval descriptions say "for kids" on adult hoodies). Also improves v1.
+- **Email:** Resend shows all three v2 emails delivered (likely Spam/Promotions); one v1 run bounced on a "gmail.col" typo → add a typo check in 6c.
+- **Still open (catalogue):** cookie banner covers Continue on phones until dismissed (site-wide component); a toddler "who loves animals" gets pet-store items because the catalogue has no kids' animal toys/books.
 
 ---
 

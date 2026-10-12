@@ -4,7 +4,7 @@
 // graph (lib/quiz-v2/graph.ts); this component only renders them. The raw
 // state is posted to /api/quiz/submit, which validates and maps it server-side.
 
-import { useMemo, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { useRouter } from "next/navigation";
 import {
   Heart, Flower2, Users, Smile, Baby, Briefcase, UserRound, Crown,
@@ -74,13 +74,14 @@ function Cards({ options, value, onPick, icons, multi = false, max }: {
   );
 }
 
-function Chips({ label, hint, options, value, onPick }: {
+function Chips({ label, hint, options, value, onPick, prominent = false }: {
   label: string; hint?: string; options: Option[]; value: string | string[]; onPick: (id: string) => void;
+  prominent?: boolean; // a required follow-up question, not an optional extra
 }) {
   const selected = (id: string) => (Array.isArray(value) ? value.includes(id) : value === id);
   return (
     <div>
-      <p className="mb-3 text-sm font-semibold text-gray-700">
+      <p className={prominent ? "mb-3 text-xl font-serif font-bold text-primary" : "mb-3 text-sm font-semibold text-gray-700"}>
         {label} {hint && <span className="text-gray-400 font-normal">{hint}</span>}
       </p>
       <div className="flex flex-wrap gap-2">
@@ -105,6 +106,8 @@ export function QuizFlowV2({ userEmail, initialState, depthAvailable }: QuizFlow
   const ctx: GraphContext = useMemo(() => ({ depthAvailable: new Set(depthAvailable) }), [depthAvailable]);
   const [state, setState] = useState<V2State>(() => pruneState(initialState ?? EMPTY_STATE, ctx));
   const [stepId, setStepId] = useState<StepId>("who");
+  const topRef = useRef<HTMLDivElement>(null);
+  const ageRef = useRef<HTMLDivElement>(null);
   const [history, setHistory] = useState<StepId[]>([]);
   const [emailState, setEmailState] = useState({ firstName: "", email: userEmail || "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -172,8 +175,23 @@ export function QuizFlowV2({ userEmail, initialState, depthAvailable }: QuizFlow
 
   const title = currentId === "email" ? "Where should we send the gifts?" : screen?.title(state) ?? "";
 
+  // On a phone the next screen would otherwise open scrolled down, with its
+  // question hidden above the fold. Bring the progress bar + title into view.
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return; }
+    topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [currentId]);
+
+  // Picking "Child" reveals a required age question below the cards — show it.
+  const pickRelationship = (id: string) => {
+    update({ relationship: id as V2State["relationship"] });
+    if (id === "child") setTimeout(() => ageRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+  };
+  const needsAge = currentId === "who" && lifeStageRequired(state) && !state.lifeStage;
+
   return (
-    <div className="w-full max-w-3xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+    <div ref={topRef} className="w-full max-w-3xl mx-auto px-4 py-12 sm:px-6 lg:px-8 scroll-mt-4">
       <div className="mb-10">
         <div className="flex justify-between text-xs font-semibold text-gray-400 mb-2 px-1">
           <span>Step {stepIndex + 1} of {steps.length}</span>
@@ -190,10 +208,13 @@ export function QuizFlowV2({ userEmail, initialState, depthAvailable }: QuizFlow
           {currentId === "who" && (
             <>
               <Cards options={RELATIONSHIPS} value={state.relationship} icons={RELATIONSHIP_ICONS}
-                onPick={(id) => update({ relationship: id as V2State["relationship"] })} />
+                onPick={pickRelationship} />
               {lifeStageOptions(state).length > 0 && (
-                <Chips label="How old are they?" hint={lifeStageRequired(state) ? undefined : "(optional)"}
-                  options={lifeStageOptions(state)} value={state.lifeStage} onPick={(id) => single("lifeStage", id)} />
+                <div ref={ageRef}>
+                  <Chips label="How old are they?" hint={lifeStageRequired(state) ? undefined : "(optional)"}
+                    prominent={lifeStageRequired(state)}
+                    options={lifeStageOptions(state)} value={state.lifeStage} onPick={(id) => single("lifeStage", id)} />
+                </div>
               )}
               {genderShown(state) && (
                 <Chips label="Shopping for" hint="(optional)" options={GENDERS} value={state.gender} onPick={(id) => single("gender", id)} />
@@ -291,6 +312,8 @@ export function QuizFlowV2({ userEmail, initialState, depthAvailable }: QuizFlow
         {submitError && (
           <div className="mt-6 p-4 bg-red-50 text-red-600 border border-red-200 rounded-xl text-center text-sm font-medium">{submitError}</div>
         )}
+
+        {needsAge && <p className="mt-6 text-center text-sm font-medium text-accent">Pick their age to continue.</p>}
 
         <div className="mt-10 flex justify-between items-center pt-6 border-t border-gray-100">
           <button type="button" onClick={back}

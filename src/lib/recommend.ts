@@ -253,6 +253,16 @@ const MILESTONE_WORDS: Record<string, string[]> = {
   "70+": ["70th", "80th", "90th", "70 years", "80 years"],
 };
 const isChildAge = (a: string) => a === "under12" || a === "13-19";
+// Clothing is sized: an adult tee/hoodie is wrong for a young child unless the
+// listing is clearly kid-sized (Printerval-style feeds rarely say "men's").
+const APPAREL_WORDS = ["t-shirt", "t shirt", "tshirt", "tee", "shirt", "hoodie", "pullover", "sweatshirt", "tank top", "sweater", "leggings", "jacket", "polo"];
+const KID_SIZE_WORDS = ["kids", "kid", "toddler", "baby", "infant", "youth", "boys", "girls", "children", "child", "onesie", "bodysuit", "2t", "3t", "4t", "5t"];
+
+// Supplies FOR an animal (a dog joint supplement, a cat toy) — only a fit when
+// the shopper said the person is into pets; otherwise loose "wellness" tags
+// put them in front of people shopping for a person.
+const PET_SUPPLY_WORDS = ["for dogs", "for dog", "for cats", "for cat", "for pets", "for pet", "dog food", "cat food", "dog treat", "cat treat", "dog toy", "cat toy", "dog bed", "cat bed", "cat litter", "litter box", "leash", "dog collar", "cat collar", "kennel", "pet supplement"];
+const PET_INTERESTS = ["pets", "dogs", "cats", "pet tech"];
 
 // Avoid-flag hardening (Step 5b): most products don't carry the `avoid_flags`
 // tag yet (the deferred re-tag), so an interpreted "no alcohol" / "scent-
@@ -357,7 +367,13 @@ export function getRecommendations(
     const hasAdultOnly = ADULT_ONLY_WORDS.some(w => containsWord(hay, w));
     const hasAdultTargeted = ADULT_TARGETED_WORDS.some(w => containsWord(hay, w));
     // young child: no adult apparel/jewelry ("men's"/"women's"), alcohol, or partner gifts
-    if (wantAge === "under12") return !hasAdultOnly && !hasAdultTargeted;
+    if (wantAge === "under12") {
+      // Title only: print-on-demand descriptions are boilerplate that mention
+      // "kids" on adult hoodies too. Real kids' clothing says so in the title.
+      const title = (gift.name || "").toLowerCase();
+      const adultApparel = APPAREL_WORDS.some(w => containsWord(title, w)) && !KID_SIZE_WORDS.some(w => containsWord(title, w));
+      return !hasAdultOnly && !hasAdultTargeted && !adultApparel;
+    }
     if (wantAge === "13-19") return !hasAdultOnly && !hasBaby; // teen: no alcohol, no baby items
     return !hasKid;                                            // adult (20s+): no children's items
   });
@@ -390,8 +406,15 @@ export function getRecommendations(
     return true;
   });
 
+  // Stage A: pet supplies only when the shopper picked pets (or mentioned them).
+  const wantsPets = interests.some((i) => PET_INTERESTS.includes(normKey(i))) || /\b(pet|pets|dog|dogs|cat|cats|puppy|kitten)\b/.test(freeText);
+  const petSafe = wantsPets ? relationshipSafe : relationshipSafe.filter((gift) => {
+    const hay = [gift.name, gift.description].filter(Boolean).join(" ").toLowerCase();
+    return !PET_SUPPLY_WORDS.some((w) => containsWord(hay, w));
+  });
+
   // Stage A: a sympathy occasion never shows fun/quirky items (owner rule).
-  const stageA = !isSympathy ? relationshipSafe : relationshipSafe.filter((gift) => styleOf(gift) !== "fun");
+  const stageA = !isSympathy ? petSafe : petSafe.filter((gift) => styleOf(gift) !== "fun");
   const expertGear = (answers.experienceLevel || "").toLowerCase() === "expert";
 
   // The best score these answers could possibly produce, so the percentage

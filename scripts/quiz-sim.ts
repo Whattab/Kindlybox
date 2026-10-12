@@ -40,6 +40,10 @@ const SCENARIOS: Scenario[] = [
   { name: "v2-teen-gamer", answers: toQuizAnswers(v2({ relationship: "child", lifeStage: "teen", gender: "him", occasion: "birthday", saturday: ["gadgets"], depth: ["gaming"], feel: "fun", budget: "25-50" })) },
   { name: "v2-coworker", answers: toQuizAnswers(v2({ relationship: "coworker", occasion: "thank you", saturday: ["reading", "hosting"], feel: "surprise", budget: "under-25" })) },
   { name: "v2-fisherman-dad", answers: toQuizAnswers(v2({ relationship: "dad", lifeStage: "70+", occasion: "father's day", saturday: ["outdoors"], depth: ["fishing"], level: "beginner", feel: "practical", budget: "100-200" })) },
+  // Owner's live phone test (2026-10-12) — exact answers from quiz_sessions.
+  { name: "owner-fit-partner", answers: toQuizAnswers(v2({ relationship: "partner", gender: "her", lifeStage: "30s-40s", recipientName: "Julia", occasion: "just because", saturday: ["active"], level: "enthusiast", feel: "experience", budget: "100-200", freeText: "She loves to be healthy and fit" })) },
+  { name: "owner-sympathy", answers: toQuizAnswers(v2({ relationship: "friend", lifeStage: "50s-60s", recipientName: "Don", occasion: "sympathy", feel: "sentimental", budget: "50-100", freeText: "Sympathy for him. His mother died " })) },
+  { name: "owner-toddler-pets", answers: toQuizAnswers(v2({ relationship: "child", gender: "her", lifeStage: "toddler", recipientName: "Mona", occasion: "just because", saturday: ["pets"], feel: "practical", budget: "50-100", avoids: ["no alcohol"], freeText: "Lovely kids who loves animals " })) },
 ];
 
 function v2(o: Partial<V2State>): V2State {
@@ -105,7 +109,7 @@ async function run() {
     const catalogue = [...(gifts || []), ...products];
     const recs = getRecommendations(sc.answers, catalogue as Gift[], { seed: 1, limit: 3 });
     console.log(`\n=== ${sc.name} === (${products.length} product candidates + ${gifts?.length || 0} gifts)`);
-    console.log(`    occasion=${sc.answers.occasion} interests=${JSON.stringify(sc.answers.interests)} budget=${sc.answers.budget}${sc.answers.avoidFlags ? " avoid=" + JSON.stringify(sc.answers.avoidFlags) : ""}`);
+    console.log(`    age=${sc.answers.ageGroup || "-"} occasion=${sc.answers.occasion} interests=${JSON.stringify(sc.answers.interests)} budget=${sc.answers.budget}${sc.answers.avoidFlags ? " avoid=" + JSON.stringify(sc.answers.avoidFlags) : ""}`);
     recs.forEach((r, i) => {
       const src = (r.gift as any).__source === "product" ? "prod" : "gift";
       console.log(`  ${i + 1}. [${r.matchScorePercent}%] {${styleOf(r.gift)}} ${r.gift.name.slice(0, 44)} «occ:${(r.gift.occasions || []).join(",") || "-"}» «tag:${(r.gift.tags || []).join(",") || "-"}» (${src})`);
