@@ -151,3 +151,31 @@ describe("gift feel (Step 6 question)", () => {
     expect(out.filter((n) => n.startsWith("Lavender"))).toHaveLength(1);
   });
 });
+
+describe("live-test fixes (2026-10-12)", () => {
+  it("drops pet supplies unless the shopper picked pets", () => {
+    const supp = g({ name: "Hip & Joint Supplement for Dogs", tags: ["fitness & wellness"] });
+    const watch = g({ name: "Running Smartwatch", tags: ["fitness & wellness"] });
+    const ans: QuizAnswers = { ...base, interests: ["fitness & wellness"] };
+    expect(names(getRecommendations(ans, [supp, watch], { seed: 1, limit: 2 }))).toEqual(["Running Smartwatch"]);
+    expect(names(getRecommendations({ ...ans, interests: ["fitness & wellness", "pets"] }, [supp, watch], { seed: 1, limit: 2 }))).toContain("Hip & Joint Supplement for Dogs");
+  });
+  it("drops adult-sized apparel for a young child but keeps kid-sized", () => {
+    const tee = g({ name: "Rothco Tactical Athletic Fit 3d T-shirt", tags: ["pets"] });
+    const hoodie = g({ name: "Kawaii Corgi Pullover Hoodie", tags: ["pets"] });
+    const kidTee = g({ name: "Toddler Dinosaur T-shirt", tags: ["pets"] });
+    const plush = g({ name: "Plush Puppy Toy", tags: ["pets"] });
+    const out = names(getRecommendations({ ...base, interests: ["pets"], ageGroup: "under12" }, [tee, hoodie, kidTee, plush], { seed: 1, limit: 4 }));
+    expect(out).not.toContain("Rothco Tactical Athletic Fit 3d T-shirt");
+    expect(out).not.toContain("Kawaii Corgi Pullover Hoodie");
+    expect(out).toEqual(expect.arrayContaining(["Toddler Dinosaur T-shirt", "Plush Puppy Toy"]));
+  });
+});
+
+describe("child apparel uses the title, not boilerplate descriptions", () => {
+  it("drops an adult hoodie whose description mentions kids", () => {
+    const hoodie = g({ name: "Kawaii Corgi Pullover Hoodie", description: "Hoodie for unisex. Also great for kids!", tags: ["pets"] });
+    const plush = g({ name: "Plush Puppy Toy", tags: ["pets"] });
+    expect(names(getRecommendations({ ...base, interests: ["pets"], ageGroup: "under12" }, [hoodie, plush], { seed: 1, limit: 2 }))).toEqual(["Plush Puppy Toy"]);
+  });
+});
