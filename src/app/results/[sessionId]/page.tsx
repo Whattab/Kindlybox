@@ -6,6 +6,8 @@ import { ArrowRight, RedoDot, Check } from "lucide-react";
 import { ShareButtons } from "@/components/ShareButtons";
 import { GiftImage } from "@/components/GiftImage";
 import { saveGiftToProfile } from "./actions";
+import { EmailPicksForm } from "./EmailPicksForm";
+import { normalizeSuggestion, SUGGESTION_SELECT } from "@/lib/quiz-email";
 import { rankLabel, interestChips, pronounFor } from "@/lib/quiz-labels";
 import { DigitalGiftCallout } from "@/components/DigitalGiftCallout";
 import { suggestDigitalExtra } from "@/lib/digital-suggest";
@@ -40,16 +42,7 @@ export default async function ResultsPage({
   // Fetch suggestions
   const { data: suggestions } = await db
     .from("gift_suggestions")
-    .select(`
-      id,
-      match_score,
-      rank,
-      personalized_reason,
-      source,
-      product_id,
-      gifts (id, name, description, image_url, price_min, price_max, affiliate_url, affiliate_network),
-      products (id, title, description, image_url, price, affiliate_link)
-    `)
+    .select(SUGGESTION_SELECT)
     .eq("session_id", session.id)
     .order("rank", { ascending: true });
 
@@ -117,26 +110,17 @@ export default async function ResultsPage({
             </Link>
             <ShareButtons shareLink={shareLink} />
           </div>
+          {/* v2 quiz asks for the email here, after the gifts (Step 6c). */}
+          {!session.email_captured && <EmailPicksForm sessionId={session.id} />}
         </div>
 
         <div className="flex flex-col gap-6 max-w-2xl mx-auto">
           {suggestions.map((suggestion: any, index: number) => {
             // A pick is either a curated gift or an affiliate product — normalize
             // both into the same shape so the card below renders unchanged.
-            const isProduct = suggestion.source === "product" || (!suggestion.gifts && suggestion.products);
-            const p = suggestion.products;
-            const gift = isProduct && p
-              ? {
-                  id: p.id,
-                  name: p.title,
-                  description: p.description,
-                  image_url: p.image_url,
-                  price_min: p.price,
-                  price_max: p.price,
-                  affiliate_url: p.affiliate_link,
-                }
-              : suggestion.gifts;
-            if (!gift) return null;
+            const normalized = normalizeSuggestion(suggestion);
+            if (!normalized) return null;
+            const { gift, isProduct } = normalized;
             // Amazon items must never show a hand-entered price (Associates rule).
             // Feed products are never Amazon; curated gifts carry the network tag.
             const isAmazon = !isProduct && isAmazonItem({

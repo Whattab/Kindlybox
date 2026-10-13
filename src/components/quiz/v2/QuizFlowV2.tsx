@@ -37,7 +37,7 @@ const FEEL_ICONS: Record<string, Icon> = {
   practical: Wrench, sentimental: Heart, treat: Gift, fun: PartyPopper, experience: Ticket, surprise: Shuffle,
 };
 
-type StepId = ScreenId | "email";
+type StepId = ScreenId;
 
 const cardClass = (selected: boolean) =>
   `flex flex-col items-center justify-center p-4 border-2 rounded-2xl transition-all duration-200 ${
@@ -96,12 +96,11 @@ function Chips({ label, hint, options, value, onPick, prominent = false }: {
 }
 
 interface QuizFlowV2Props {
-  userEmail: string | null;
   initialState?: V2State;
   depthAvailable: string[];
 }
 
-export function QuizFlowV2({ userEmail, initialState, depthAvailable }: QuizFlowV2Props) {
+export function QuizFlowV2({ initialState, depthAvailable }: QuizFlowV2Props) {
   const router = useRouter();
   const ctx: GraphContext = useMemo(() => ({ depthAvailable: new Set(depthAvailable) }), [depthAvailable]);
   const [state, setState] = useState<V2State>(() => pruneState(initialState ?? EMPTY_STATE, ctx));
@@ -109,7 +108,6 @@ export function QuizFlowV2({ userEmail, initialState, depthAvailable }: QuizFlow
   const topRef = useRef<HTMLDivElement>(null);
   const ageRef = useRef<HTMLDivElement>(null);
   const [history, setHistory] = useState<StepId[]>([]);
-  const [emailState, setEmailState] = useState({ firstName: "", email: userEmail || "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -125,17 +123,16 @@ export function QuizFlowV2({ userEmail, initialState, depthAvailable }: QuizFlow
     update({ [key]: (state[key] === id ? "" : id) } as Partial<V2State>);
 
   const screens = visibleScreens(state, ctx);
-  const steps: StepId[] = [...screens.map((s) => s.id), ...(userEmail ? [] : (["email"] as StepId[]))];
+  // No email screen: the shopper sees their gifts first and can opt in to an
+  // email on the results page (Step 6c). Logged-in users are emailed at submit.
+  const steps: StepId[] = screens.map((s) => s.id);
   // A branch change can hide the current screen (e.g. picking sympathy) — fall back to the last visible one.
   const currentId: StepId = steps.includes(stepId) ? stepId : steps[Math.min(history.length, steps.length - 1)];
   const stepIndex = steps.indexOf(currentId);
   const isLast = stepIndex === steps.length - 1;
   const screen = SCREENS.find((s) => s.id === currentId);
 
-  const isValid =
-    currentId === "email"
-      ? emailState.firstName.trim() !== "" && emailState.email.includes("@")
-      : !!screen && screen.valid(state, ctx);
+  const isValid = !!screen && screen.valid(state, ctx);
 
   const submit = async () => {
     if (isSubmitting) return;
@@ -145,7 +142,7 @@ export function QuizFlowV2({ userEmail, initialState, depthAvailable }: QuizFlow
       const res = await fetch("/api/quiz/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quizVersion: "v2", v2: state, firstName: emailState.firstName, email: userEmail || emailState.email }),
+        body: JSON.stringify({ quizVersion: "v2", v2: state }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -173,7 +170,7 @@ export function QuizFlowV2({ userEmail, initialState, depthAvailable }: QuizFlow
     setStepId(prev);
   };
 
-  const title = currentId === "email" ? "Where should we send the gifts?" : screen?.title(state) ?? "";
+  const title = screen?.title(state) ?? "";
 
   // On a phone the next screen would otherwise open scrolled down, with its
   // question hidden above the fold. Bring the progress bar + title into view.
@@ -287,26 +284,6 @@ export function QuizFlowV2({ userEmail, initialState, depthAvailable }: QuizFlow
             </div>
           )}
 
-          {currentId === "email" && (
-            <div className="max-w-sm mx-auto flex flex-col gap-6">
-              <div className="text-center">
-                <Gift className="w-12 h-12 text-accent mx-auto mb-4" />
-                <p className="text-gray-600">We&apos;ve found 3 perfect gifts! Tell us where to send your curated recommendations.</p>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                  <input type="text" value={emailState.firstName} className={inputClass} placeholder="Jane"
-                    onChange={(e) => setEmailState((s) => ({ ...s, firstName: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                  <input type="email" value={emailState.email} className={inputClass} placeholder="jane@example.com"
-                    onChange={(e) => setEmailState((s) => ({ ...s, email: e.target.value }))} />
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {submitError && (

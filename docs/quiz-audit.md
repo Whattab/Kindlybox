@@ -273,6 +273,7 @@ The quiz submit awaits 3 Gemini calls and an email send before responding. Both 
 - **Pet supplies** (a dog joint supplement for a fit partner) only show when the shopper picked pets or mentioned an animal.
 - **Young children** no longer get adult tees/hoodies; kid-sizing is read from the **title** (Printerval descriptions say "for kids" on adult hoodies). Also improves v1.
 - **Email:** Resend shows all three v2 emails delivered (likely Spam/Promotions); one v1 run bounced on a "gmail.col" typo → add a typo check in 6c.
+- **Deployed** 2026-10-12 (`2e9ec79`), re-verified on the live site in Edge at phone size.
 - **Still open (catalogue):** cookie banner covers Continue on phones until dismissed (site-wide component); a toddler "who loves animals" gets pet-store items because the catalogue has no kids' animal toys/books.
 
 ---
@@ -292,3 +293,10 @@ The quiz submit awaits 3 Gemini calls and an email send before responding. Both 
 ---
 
 *Awaiting your review before any implementation. Nothing in the project was modified to produce this report except this file.*
+
+### Step 6c — ✅ on branch `step-6c` (2026-10-13) — "Email me these picks"
+- **v2 has no email screen:** the quiz ends at "Tell us one thing about them" → results. Logged-in shoppers are still emailed at submit.
+- **Results page** ([EmailPicksForm](src/app/results/[sessionId]/EmailPicksForm.tsx), `emailMyPicks` in [actions.ts](src/app/results/[sessionId]/actions.ts)): shown when the session has no captured email. **One email per session** — the address is claimed with a conditional update (only while `email_captured` is empty), so a shared results link can't be used to spam; the claim is released if Resend fails so the shopper can retry.
+- **Shared sender** ([quiz-email.ts](src/lib/quiz-email.ts)): `sendResultsEmail` (moved from the submit route, same behaviour), `loadSessionPicks`, and `normalizeSuggestion` / `SUGGESTION_SELECT` now shared with the results page.
+- **Typo check** ([email-typo.ts](src/lib/email-typo.ts)): "Did you mean x@gmail.com?" one-tap fix (gmail.col/.con, gmial, hotmial, yahooo, outlok…), on the results form **and** v1's email step. Never blocks.
+- **Verified:** 109 unit tests; tsc clean for touched files; Edge at phone size — v2 run lands on results with no email screen, form shows, `test@gmail.col` → suggestion → fixed. **Not yet:** a real send (needs owner OK; done after deploy).

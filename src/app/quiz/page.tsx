@@ -77,7 +77,6 @@ export default async function QuizPage({
         {remember && <QuizVersionCookie version={version} />}
         {version === "v2" ? (
           <QuizFlowV2
-            userEmail={userEmail}
             initialState={prefillFromParams(searchParams || {})}
             depthAvailable={depthAvailable}
           />

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { suggestEmailFix } from "@/lib/email-typo";
 import { 
   Heart, Home, Users, Baby, Briefcase, Smile,
   Cake, GlassWater, Gift, HeartHandshake, Sparkles, GraduationCap, Home as HouseIcon,
@@ -380,6 +381,19 @@ export function QuizFlow({ userEmail, initialValues }: QuizFlowProps) {
                     placeholder="jane@example.com"
                     required
                   />
+                  {suggestEmailFix(emailState.email) && (
+                    <p className="mt-2 text-sm text-gray-600">
+                      Did you mean{" "}
+                      <button
+                        type="button"
+                        onClick={() => setEmailState(s => ({ ...s, email: suggestEmailFix(s.email) || s.email }))}
+                        className="font-semibold text-accent underline underline-offset-2"
+                      >
+                        {suggestEmailFix(emailState.email)}
+                      </button>
+                      ?
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

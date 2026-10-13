@@ -3,6 +3,9 @@
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { createServiceClient } from "@/utils/supabase/admin";
+import { looksLikeEmail } from "@/lib/email-typo";
+import { loadSessionPicks, sendResultsEmail } from "@/lib/quiz-email";
 
 export async function saveGiftToProfile(formData: FormData) {
   const supabase = createClient();
@@ -50,4 +53,43 @@ export async function saveGiftToProfile(formData: FormData) {
   revalidatePath("/dashboard/gifts");
   revalidatePath(`/results/${session_id}`);
   redirect(`/dashboard/gifts`);
+}
+
+// ── "Email me these picks" (Step 6c) ─────────────────────────────────────
+// The v2 quiz no longer asks for an email up front; the shopper opts in here.
+// Results links are shareable, so to stop a link being used to fire emails at
+// arbitrary addresses, a session can be emailed ONCE: the address is claimed
+// with a conditional update (only while email_captured is still empty).
+
+export type EmailPicksResult = { ok: true } | { ok: false; error: string };
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function emailMyPicks(sessionId: string, firstName: string, email: string): Promise<EmailPicksResult> {
+  const to = (email || "").trim();
+  const name = (firstName || "").trim().slice(0, 80);
+  if (!UUID.test(sessionId || "")) return { ok: false, error: "We couldn't find these results." };
+  if (!looksLikeEmail(to) || to.length > 254) return { ok: false, error: "Please enter a valid email address." };
+
+  const db = createServiceClient();
+  const { data: claimed, error } = await db
+    .from("quiz_sessions")
+    .update({ email_captured: to, first_name_captured: name || null })
+    .eq("id", sessionId)
+    .is("email_captured", null)
+    .select("id");
+  if (error) {
+    console.error("[email-picks] claim failed:", error);
+    return { ok: false, error: "Something went wrong. Please try again." };
+  }
+  if (!claimed || claimed.length === 0) return { ok: false, error: "These picks have already been emailed." };
+
+  const picks = await loadSessionPicks(db, sessionId);
+  const sent = picks.length > 0 && (await sendResultsEmail({ to, firstName: name || undefined, recommendations: picks, sessionId }));
+  if (!sent) {
+    // Release the claim so the shopper can retry.
+    await db.from("quiz_sessions").update({ email_captured: null, first_name_captured: null }).eq("id", sessionId).eq("email_captured", to);
+    return { ok: false, error: "We couldn't send the email. Please try again." };
+  }
+  return { ok: true };
 }
