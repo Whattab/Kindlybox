@@ -7,11 +7,7 @@ import { loadProductCandidates } from "@/lib/affiliate/candidates";
 import { generatePersonalizedReasons } from "@/lib/personalize";
 import { interpretFreeText } from "@/lib/ai-tags";
 import { isAmazonItem } from "@/lib/amazon-display";
-import { Resend } from "resend";
-import GiftSuggestionsEmail from "@/emails/GiftSuggestions";
-import * as React from 'react';
-
-const resend = new Resend(process.env.RESEND_API_KEY!);
+import { sendResultsEmail } from "@/lib/quiz-email";
 
 // Construct admin client that ignores RLS to securely save sessions regardless of user state
 const supabaseAdmin = createSupabaseClient(
@@ -150,30 +146,10 @@ export async function POST(request: Request) {
     // 6. Send the email via Resend
     const recipientEmail = user ? user.email : email;
     
+    // (v2 posts no email — the shopper opts in on the results page, Step 6c.)
     if (recipientEmail) {
-      try {
-        console.log("[email] Attempting to send to:", recipientEmail, "from:", process.env.RESEND_FROM_EMAIL);
-        const result = await resend.emails.send({
-          from: process.env.RESEND_FROM_EMAIL || 'hello@kindlybox.com',
-          to: recipientEmail,
-          subject: `Your 3 perfect gifts are here${personalizationName ? `, ${personalizationName}` : ''} 🎁`,
-          react: React.createElement(GiftSuggestionsEmail, {
-            firstName: personalizationName,
-            recommendations,
-            sessionId,
-          }),
-        });
-        // Resend returns errors INSIDE the response object, not as exceptions.
-        // We must check result.error explicitly to know if delivery actually failed.
-        if (result?.error) {
-          console.error("[email] Resend returned an error:", JSON.stringify(result.error, null, 2));
-        } else {
-          console.log("[email] Resend accepted with id:", result?.data?.id);
-        }
-      } catch (emailErr) {
-        console.error("[email] Exception while sending:", emailErr);
-        // We don't fail the whole request just because email failed
-      }
+      // Fail-soft: we don't fail the whole request just because email failed.
+      await sendResultsEmail({ to: recipientEmail, firstName: personalizationName, recommendations, sessionId });
     } else {
       console.log("[email] Skipped — no recipient email available");
     }
