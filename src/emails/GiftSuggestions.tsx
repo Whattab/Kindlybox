@@ -71,17 +71,13 @@ export const GiftSuggestionsEmail = ({
 
             {recommendations.map((rec, index) => (
               <Section key={rec.gift.id} style={giftCard}>
-                {/* No Amazon product images in email: Amazon restricts its
-                    content and links in emails. The results page shows them. */}
-                {!isAmazonItem({ affiliate_network: rec.gift.affiliate_network, url: rec.gift.affiliate_url }) && rec.gift.image_url && (
-                  <Img
-                    src={rec.gift.image_url}
-                    width="100%"
-                    height="250"
-                    alt={rec.gift.name}
-                    style={giftImage}
-                  />
-                )}
+                <Img
+                  src={rec.gift.image_url}
+                  width="100%"
+                  height="250"
+                  alt={rec.gift.name}
+                  style={giftImage}
+                />
                 <Section style={giftDetails}>
                   <Text style={matchBadge}>{rankLabel(index)}</Text>
                   <Heading style={giftTitle}>{rec.gift.name}</Heading>
