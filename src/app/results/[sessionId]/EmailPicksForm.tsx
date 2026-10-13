@@ -1,10 +1,11 @@
 "use client";
 
 // "Email me these picks" (Step 6c): the v2 quiz shows gifts first and asks for
-// an email afterwards. Suggests a fix for common domain typos (gmail.col → .com).
+// an email afterwards. A known domain typo (gmail.col) is never sent silently:
+// pressing the button stops and asks "Did you mean …?" first.
 
 import { useState, type FormEvent } from "react";
-import { Mail, Loader2, CheckCircle2 } from "lucide-react";
+import { Mail, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { suggestEmailFix, looksLikeEmail } from "@/lib/email-typo";
 import { emailMyPicks } from "./actions";
 
@@ -16,21 +17,28 @@ export function EmailPicksForm({ sessionId }: { sessionId: string }) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [asking, setAsking] = useState(false); // showing the typo question
   const fix = suggestEmailFix(email);
 
-  const send = async (e: FormEvent) => {
-    e.preventDefault();
-    if (status !== "idle" || !looksLikeEmail(email)) return;
+  const deliver = async (to: string, typoConfirmed: boolean) => {
+    setAsking(false);
     setStatus("sending");
     setError(null);
     try {
-      const res = await emailMyPicks(sessionId, firstName, email);
+      const res = await emailMyPicks(sessionId, firstName, to, typoConfirmed);
       if (res.ok) return setStatus("sent");
       setError(res.error);
     } catch {
       setError("Something went wrong. Please try again.");
     }
     setStatus("idle");
+  };
+
+  const send = (e: FormEvent) => {
+    e.preventDefault();
+    if (status !== "idle" || !looksLikeEmail(email)) return;
+    if (fix) return setAsking(true); // ask before sending to a likely typo
+    void deliver(email, false);
   };
 
   if (status === "sent") {
@@ -52,16 +60,27 @@ export function EmailPicksForm({ sessionId }: { sessionId: string }) {
       <div className="space-y-3">
         <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} maxLength={80}
           className={inputClass} placeholder="Your first name (optional)" autoComplete="given-name" />
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={254} required
+        <input type="email" value={email} onChange={(e) => { setEmail(e.target.value); setAsking(false); }} maxLength={254} required
           className={inputClass} placeholder="you@example.com" autoComplete="email" inputMode="email" />
         {fix && (
-          <p className="text-sm text-gray-600">
-            Did you mean{" "}
-            <button type="button" onClick={() => setEmail(fix)} className="font-semibold text-accent underline underline-offset-2">
-              {fix}
-            </button>
-            ?
-          </p>
+          <div className={`rounded-xl border p-3 text-sm ${asking ? "border-amber-400 bg-amber-50" : "border-amber-200 bg-amber-50/60"}`}>
+            <p className="flex items-start gap-2 text-gray-700">
+              <AlertTriangle className="w-4 h-4 mt-0.5 text-amber-600 flex-shrink-0" />
+              <span>Did you mean <strong>{fix}</strong>?</span>
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button type="button" onClick={() => { setEmail(fix); if (asking) void deliver(fix, false); }}
+                className="rounded-lg bg-accent px-3 py-1.5 font-semibold text-white">
+                {asking ? `Yes, send to ${fix}` : `Use ${fix}`}
+              </button>
+              {asking && (
+                <button type="button" onClick={() => void deliver(email, true)}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 font-medium text-gray-600">
+                  No, keep {email.trim()}
+                </button>
+              )}
+            </div>
+          </div>
         )}
       </div>
       {error && <p className="mt-3 text-sm font-medium text-red-600">{error}</p>}

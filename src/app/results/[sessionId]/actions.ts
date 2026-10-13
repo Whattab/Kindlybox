@@ -4,7 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createServiceClient } from "@/utils/supabase/admin";
-import { looksLikeEmail } from "@/lib/email-typo";
+import { looksLikeEmail, suggestEmailFix } from "@/lib/email-typo";
 import { loadSessionPicks, sendResultsEmail } from "@/lib/quiz-email";
 
 export async function saveGiftToProfile(formData: FormData) {
@@ -65,11 +65,17 @@ export type EmailPicksResult = { ok: true } | { ok: false; error: string };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function emailMyPicks(sessionId: string, firstName: string, email: string): Promise<EmailPicksResult> {
+export async function emailMyPicks(
+  sessionId: string, firstName: string, email: string, typoConfirmed = false,
+): Promise<EmailPicksResult> {
   const to = (email || "").trim();
   const name = (firstName || "").trim().slice(0, 80);
   if (!UUID.test(sessionId || "")) return { ok: false, error: "We couldn't find these results." };
   if (!looksLikeEmail(to) || to.length > 254) return { ok: false, error: "Please enter a valid email address." };
+  // A known domain typo (gmail.col) bounces — never send it unless the
+  // shopper explicitly said "keep it" (the form asks first).
+  const fix = suggestEmailFix(to);
+  if (fix && !typoConfirmed) return { ok: false, error: `Did you mean ${fix}?` };
 
   const db = createServiceClient();
   const { data: claimed, error } = await db

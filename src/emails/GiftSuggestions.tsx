@@ -15,6 +15,7 @@ import {
 import * as React from 'react';
 import { rankLabel } from '@/lib/quiz-labels';
 import { isAmazonItem, AMAZON_PRICE_PLACEHOLDER } from '@/lib/amazon-display';
+import { emailBuyLink } from '@/lib/email-buy-link';
 
 interface Gift {
   id: string;
@@ -31,6 +32,7 @@ interface GiftScore {
   gift: Gift;
   matchScorePercent: number;
   personalizedReason?: string | null;
+  suggestionId?: string; // gift_suggestions.id → tracked buy link (see emailBuyLink)
 }
 
 interface GiftSuggestionsEmailProps {
@@ -91,10 +93,10 @@ export const GiftSuggestionsEmail = ({
                       : `$${rec.gift.price_min} - $${rec.gift.price_max}`}
                   </Text>
                   <Button
-                    href={`${baseUrl}/results/${sessionId}`}
+                    href={emailBuyLink(rec, sessionId).href}
                     style={buyButton}
                   >
-                    View this gift →
+                    {emailBuyLink(rec, sessionId).label}
                   </Button>
                 </Section>
               </Section>

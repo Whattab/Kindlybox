@@ -300,3 +300,8 @@ The quiz submit awaits 3 Gemini calls and an email send before responding. Both 
 - **Shared sender** ([quiz-email.ts](src/lib/quiz-email.ts)): `sendResultsEmail` (moved from the submit route, same behaviour), `loadSessionPicks`, and `normalizeSuggestion` / `SUGGESTION_SELECT` now shared with the results page.
 - **Typo check** ([email-typo.ts](src/lib/email-typo.ts)): "Did you mean x@gmail.com?" one-tap fix (gmail.col/.con, gmial, hotmial, yahooo, outlok…), on the results form **and** v1's email step. Never blocks.
 - **Verified:** 109 unit tests; tsc clean for touched files; Edge at phone size — v2 run lands on results with no email screen, form shows, `test@gmail.col` → suggestion → fixed. **Not yet:** a real send (needs owner OK; done after deploy).
+- **Deployed** 2026-10-13 (`d9c6a58`).
+
+### Step 6c fixes — from the owner's test (2026-10-13, branch `step-6c-fixes`)
+- **Typo still sent:** the owner's `@gmail.col` went out and bounced (Resend log). The hint did render (verified live in Edge) but was easy to miss. Now pressing "Email me these picks" with a known typo **stops and asks** ("Yes, send to …@gmail.com" / "No, keep …"), and the server action refuses a known typo unless explicitly confirmed. Verified locally in Edge: no request sent until a choice is made.
+- **Email buy buttons went to the results page** (by design since Step 2). Now non-Amazon picks link **straight to the shop** via the tracked redirect `/go/s/<suggestionId>` (click logged + network subtag), button "Buy this gift →". **Amazon picks still open the results page** — Amazon's Associates Operating Agreement forbids affiliate links in emails. Logic in [email-buy-link.ts](src/lib/email-buy-link.ts); submit route now saves suggestion ids before emailing.

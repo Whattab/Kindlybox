@@ -135,13 +135,21 @@ export async function POST(request: Request) {
       };
     });
 
-    const { error: suggestionsError } = await supabaseAdmin
+    const { data: savedSuggestions, error: suggestionsError } = await supabaseAdmin
       .from("gift_suggestions")
-      .insert(suggestionsToInsert);
+      .insert(suggestionsToInsert)
+      .select("id, rank");
 
     if (suggestionsError) {
       console.error("Suggestions save error:", suggestionsError);
     }
+
+    // The email's buy buttons use the tracked redirect (/go/s/<id>), so each
+    // pick needs its saved suggestion id.
+    recommendations.forEach((rec, i) => {
+      (rec as typeof rec & { suggestionId?: string }).suggestionId =
+        savedSuggestions?.find((s) => s.rank === i + 1)?.id;
+    });
 
     // 6. Send the email via Resend
     const recipientEmail = user ? user.email : email;

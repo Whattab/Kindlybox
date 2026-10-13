@@ -16,6 +16,8 @@ export interface EmailPick {
   };
   matchScorePercent: number;
   personalizedReason?: string | null;
+  /** gift_suggestions.id — lets the email link through the tracked /go/s redirect. */
+  suggestionId?: string;
 }
 
 /** Columns the results page and the email both select for a stored pick. */
@@ -47,7 +49,7 @@ export async function loadSessionPicks(db: SupabaseClient, sessionId: string): P
   const { data } = await db.from("gift_suggestions").select(SUGGESTION_SELECT).eq("session_id", sessionId).order("rank", { ascending: true });
   return (data || []).flatMap((s) => {
     const n = normalizeSuggestion(s);
-    return n ? [{ gift: n.gift, matchScorePercent: s.match_score ?? 0, personalizedReason: s.personalized_reason ?? null }] : [];
+    return n ? [{ gift: n.gift, matchScorePercent: s.match_score ?? 0, personalizedReason: s.personalized_reason ?? null, suggestionId: s.id }] : [];
   });
 }
 
