@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getRecommendations, styleOf, type Gift, type QuizAnswers } from "./recommend";
+import { getRecommendations, styleOf, variantKey, type Gift, type QuizAnswers } from "./recommend";
 
 let seq = 0;
 const g = (o: Partial<Gift>): Gift => ({
@@ -177,5 +177,32 @@ describe("child apparel uses the title, not boilerplate descriptions", () => {
     const hoodie = g({ name: "Kawaii Corgi Pullover Hoodie", description: "Hoodie for unisex. Also great for kids!", tags: ["pets"] });
     const plush = g({ name: "Plush Puppy Toy", tags: ["pets"] });
     expect(names(getRecommendations({ ...base, interests: ["pets"], ageGroup: "under12" }, [hoodie, plush], { seed: 1, limit: 2 }))).toEqual(["Plush Puppy Toy"]);
+  });
+});
+
+describe("variantKey (colour / size / florist variants)", () => {
+  it("collapses colour variants", () => {
+    expect(variantKey("Rainbow Blue Baby Blanket - FedEx")).toBe(variantKey("Rainbow Pink Baby Blanket - FedEx"));
+    expect(variantKey("Black Ceramic Mug")).toBe(variantKey("White Ceramic Mug"));
+  });
+  it("collapses size and florist variants", () => {
+    expect(variantKey("Lavender Bouquet - Standard")).toBe(variantKey("Lavender Bouquet - Deluxe"));
+    expect(variantKey("Cozy Throw Large")).toBe(variantKey("Cozy Throw Small"));
+  });
+  it("keeps genuinely different gifts apart", () => {
+    expect(variantKey("Baby Blanket")).not.toBe(variantKey("Baby Bouquet"));
+    expect(variantKey("Coffee Grinder")).not.toBe(variantKey("Coffee Scale"));
+  });
+  it("never collapses a name to nothing", () => {
+    expect(variantKey("Black")).toBe("black");
+  });
+  it("only one colour variant makes the trio", () => {
+    const pool = [
+      g({ name: "Rainbow Blue Baby Blanket - FedEx", tags: ["home decor"] }),
+      g({ name: "Rainbow Pink Baby Blanket - FedEx", tags: ["home decor"] }),
+      g({ name: "Diaper Cake", tags: ["home decor"] }),
+    ];
+    const out = names(getRecommendations({ ...base, interests: ["home decor"] }, pool, { seed: 1, limit: 3 }));
+    expect(out.filter((n) => n.includes("Baby Blanket"))).toHaveLength(1);
   });
 });

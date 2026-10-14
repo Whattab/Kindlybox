@@ -291,6 +291,30 @@ function milestoneAge(text: string): number | null {
   return m ? parseInt(m[1], 10) : null;
 }
 
+// Colour and size words that only distinguish VARIANTS of one product.
+const VARIANT_WORDS = new Set([
+  "black", "white", "grey", "gray", "silver", "gold", "rose gold", "red", "pink", "blue", "navy", "green",
+  "olive", "yellow", "orange", "purple", "lavender", "beige", "brown", "tan", "cream", "ivory", "teal",
+  "small", "medium", "large", "xl", "xxl", "xs", "mini",
+]);
+
+/**
+ * Dedupe key for "is this the same gift?". Florist/size variants ("Bouquet -
+ * Standard" / "Bouquet - Deluxe") differ after " - "; colour/size variants
+ * ("Rainbow Blue Baby Blanket" / "Rainbow Pink Baby Blanket") differ by one
+ * word. Both collapse to one key. Falls back to the plain name if stripping
+ * would leave nothing (e.g. a product literally named "Black").
+ */
+export function variantKey(name: string): string {
+  const base = (name || "").split(" - ")[0].trim().toLowerCase();
+  const stripped = base
+    .replace(/rose gold/g, " ")
+    .split(/[^a-z0-9&']+/)
+    .filter((w) => w && !VARIANT_WORDS.has(w))
+    .join(" ");
+  return stripped || base;
+}
+
 // A small, deterministic shuffle so equally-good gifts take turns across
 // quizzes instead of the same three winning forever on table order.
 function seededShuffle<T>(items: T[], seed: number): T[] {
@@ -584,9 +608,8 @@ export function getRecommendations(
     const deduped: GiftScore[] = [];
     const nameSeen = new Set<string>();
     for (const s of pool) {
-      // Florist/size variants ("Bouquet - Standard" / "Bouquet - Deluxe") are
-      // the same gift to a shopper, so dedupe on the name before " - ".
-      const key = (s.gift.name || "").split(" - ")[0].trim().toLowerCase();
+      // Variants are the same gift to a shopper — see variantKey.
+      const key = variantKey(s.gift.name || "");
       if (key && nameSeen.has(key)) continue;
       if (key) nameSeen.add(key);
       deduped.push(s);
