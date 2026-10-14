@@ -8,9 +8,21 @@ import { revalidatePath } from "next/cache";
 // Trigger an on-demand Awin sync from the dashboard (the SyncButton).
 export async function runAffiliateSync() {
   await assertAdmin();
-  const summary = await syncAwin();
-  revalidatePath("/dashboard/products");
-  return summary;
+  try {
+    const summary = await syncAwin();
+    revalidatePath("/dashboard/products");
+    return summary;
+  } catch (e) {
+    // Record it, so the "Last sync" tile shows the failure instead of hiding it.
+    const message = e instanceof Error ? e.message : String(e);
+    const now = new Date().toISOString();
+    await createServiceClient().from("affiliate_sync_runs").insert({
+      network: "awin", status: "error", imported: 0, deactivated: 0, feeds_processed: 0,
+      detail: { error: message, source: "dashboard button" }, started_at: now, finished_at: now,
+    }).then(() => undefined, () => undefined);
+    revalidatePath("/dashboard/products");
+    throw e;
+  }
 }
 
 const VALID = ["staged", "approved", "rejected"];
