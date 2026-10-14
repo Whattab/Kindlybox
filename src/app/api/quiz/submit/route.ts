@@ -157,10 +157,10 @@ export async function POST(request: Request) {
     // (v2 posts no email — the shopper opts in on the results page, Step 6c.)
     if (recipientEmail) {
       // Fail-soft: we don't fail the whole request just because email failed.
-      // Greet the SHOPPER (their own first name), not the gift recipient —
-      // "Your gifts are here, Mona" read as if Mona were the reader.
-      const shopperName = (user ? user.user_metadata?.first_name : firstName)?.trim() || undefined;
-      await sendResultsEmail({ to: recipientEmail, firstName: shopperName, recommendations, sessionId });
+      // Greeting (owner rule): the shopper's own first name if we have it,
+      // otherwise the gift recipient's name, otherwise no name.
+      const greetName = (user ? user.user_metadata?.first_name : firstName)?.trim() || recipientName?.trim() || undefined;
+      await sendResultsEmail({ to: recipientEmail, firstName: greetName, recommendations, sessionId });
     } else {
       console.log("[email] Skipped — no recipient email available");
     }
