@@ -58,7 +58,9 @@ export default async function QuizPage({
         )}
       </header>
       
-      <div className="flex-grow flex flex-col items-center py-10 bg-gradient-to-b from-background to-white relative overflow-hidden">
+      {/* Extra bottom space so the quiz's Continue button can always scroll
+          clear of the site-wide cookie notice (fixed to the bottom on phones). */}
+      <div className="flex-grow flex flex-col items-center pt-10 pb-48 sm:pb-32 bg-gradient-to-b from-background to-white relative overflow-hidden">
         {/* Subtle decorative background elements */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none -z-10">
           <div className="absolute top-[-10%] left-[-5%] w-[40%] h-[40%] rounded-full bg-accent/5 blur-3xl" />
