@@ -83,7 +83,7 @@ export async function emailMyPicks(
     .update({ email_captured: to, first_name_captured: name || null })
     .eq("id", sessionId)
     .is("email_captured", null)
-    .select("id");
+    .select("id, answers");
   if (error) {
     console.error("[email-picks] claim failed:", error);
     return { ok: false, error: "Something went wrong. Please try again." };
@@ -91,7 +91,10 @@ export async function emailMyPicks(
   if (!claimed || claimed.length === 0) return { ok: false, error: "These picks have already been emailed." };
 
   const picks = await loadSessionPicks(db, sessionId);
-  const sent = picks.length > 0 && (await sendResultsEmail({ to, firstName: name || undefined, recommendations: picks, sessionId }));
+  // Greeting (owner rule): the shopper's name if typed, else the gift recipient's.
+  const recipientName = String(claimed[0]?.answers?.recipientName || "").trim();
+  const greetName = name || recipientName || undefined;
+  const sent = picks.length > 0 && (await sendResultsEmail({ to, firstName: greetName, recommendations: picks, sessionId }));
   if (!sent) {
     // Release the claim so the shopper can retry.
     await db.from("quiz_sessions").update({ email_captured: null, first_name_captured: null }).eq("id", sessionId).eq("email_captured", to);
