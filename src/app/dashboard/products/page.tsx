@@ -6,6 +6,9 @@ import { SyncButton } from "./SyncButton";
 import { setProductStatus, bulkSetStatus } from "./actions";
 
 export const dynamic = "force-dynamic";
+// "Sync Awin now" runs the full sync as a server action on this page; without
+// this, Vercel's short default limit cut it off before it could finish.
+export const maxDuration = 300;
 const PAGE_SIZE = 48;
 const STATUSES = ["approved", "staged", "rejected", "all"] as const;
 
@@ -27,13 +30,19 @@ export default async function ProductsPage({
   const page = Math.max(1, parseInt(searchParams?.page || "1", 10) || 1);
   const offset = (page - 1) * PAGE_SIZE;
 
-  const [{ count: stagedCount }, { data: lastRun }, { data: catRows }] = await Promise.all([
+  // Latest run per network (ok or error), so a stalled sync is visible here.
+  const lastRunOf = (network: string) =>
+    admin.from("affiliate_sync_runs").select("*").eq("network", network)
+      .order("finished_at", { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
+  const [{ count: stagedCount }, { data: awinRun }, { data: cjRun }, { data: rakutenRun }, { data: catRows }] = await Promise.all([
     admin.from("products").select("id", { count: "exact", head: true }).eq("active", true).eq("status", "staged"),
-    admin.from("affiliate_sync_runs").select("*").order("started_at", { ascending: false }).limit(1).maybeSingle(),
+    lastRunOf("awin"), lastRunOf("cj"), lastRunOf("rakuten"),
     admin.from("products").select("category").eq("active", true).not("category", "is", null).limit(3000),
   ]);
+  const syncRuns = [["Awin", awinRun], ["CJ", cjRun], ["Rakuten", rakutenRun]] as const;
+  const STALE_MS = 36 * 60 * 60 * 1000; // a nightly sync missed more than once
 
-  const perFeed: { advertiser: string; kept: number }[] = lastRun?.detail?.per_feed ?? [];
+  const perFeed: { advertiser: string; kept: number }[] = awinRun?.detail?.per_feed ?? [];
   const merchants = Array.from(new Set(perFeed.map((f) => f.advertiser))).sort();
   const categories = Array.from(new Set((catRows || []).map((c: any) => c.category).filter(Boolean))).sort().slice(0, 40);
 
@@ -98,7 +107,19 @@ export default async function ProductsPage({
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-4 col-span-2 sm:col-span-1">
           <div className="flex items-center gap-2 text-gray-400 text-xs font-semibold uppercase tracking-wide mb-1"><Clock className="w-4 h-4" /> Last sync</div>
-          <div className="text-sm font-medium text-gray-700">{lastRun?.finished_at ? new Date(lastRun.finished_at).toLocaleString() : "Never"}</div>
+          <div className="space-y-0.5">
+            {syncRuns.map(([label, run]) => {
+              const when = run?.finished_at ? new Date(run.finished_at) : null;
+              const failed = run?.status === "error";
+              const stale = !when || Date.now() - when.getTime() > STALE_MS;
+              return (
+                <div key={label} className={`text-sm font-medium ${failed || stale ? "text-red-600" : "text-gray-700"}`}
+                  title={failed ? String(run?.detail?.error || "sync failed") : undefined}>
+                  {label}: {when ? when.toLocaleDateString() : "never"}{failed ? " · failed" : stale ? " · overdue" : ""}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
