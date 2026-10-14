@@ -313,3 +313,9 @@ The quiz submit awaits 3 Gemini calls and an email send before responding. Both 
 - **Email greeting** now uses the shopper's own first name (or none), not the gift recipient's ("…are here, Mona"). The "why we picked this" notes still use the recipient's name.
 - **Greeting rule (owner, 2026-10-14):** the email greets the shopper's own first name if given, otherwise the gift recipient's name, otherwise no name — at submit (logged-in) and from "Email me these picks".
 - **Checked owner report "email links went to Amazon":** the 04:06 UTC email's three buttons all pointed to the results page (all three picks were Amazon gifts). The three Amazon clicks in `affiliate_clicks` (04:04:54–04:05:30) were made from the results page *before* the email was sent — website links, which Amazon allows.
+
+### Affiliate sync fixed (2026-10-14)
+- **Root cause:** the nightly cron never ran in production — `CRON_SECRET` and **all network credentials** (`AWIN_*`, `CJ_*`, `RAKUTEN_*`) existed only in local `.env.local`, never on Vercel. Every successful run in the log had been triggered from a dev machine. The sync code itself was fine (dev runs: Awin ~15 s, CJ 23 s, Rakuten 13 s).
+- **Fixes:** owner added `CRON_SECRET` + the 8 network keys as Vercel *project* variables; code (`sync-fix`) logs failures to `affiliate_sync_runs` (status "error"), flags a missing `CRON_SECRET`, gives the dashboard sync button `maxDuration=300`, and shows "Last sync" per network on the Products dashboard (red when failed/overdue). GO-LIVE.md env list updated.
+- **First prod sync** 14:41 UTC: Awin 12,381 active (was 11,140), 11,730 quiz-eligible, **548 new awaiting review**; CJ 36; Rakuten 357. Quiz sims sensible. Next: confirm the 06:00 UTC nightly run on 2026-10-15.
+- Small follow-up noted: colour variants ("Rainbow Blue/Pink Baby Blanket") can both appear in one trio.
