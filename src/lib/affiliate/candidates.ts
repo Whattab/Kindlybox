@@ -56,7 +56,10 @@ function toGift(p: ProductRow): Gift {
   return g;
 }
 
-export async function loadProductCandidates(answers: QuizAnswers): Promise<Gift[]> {
+export async function loadProductCandidates(
+  answers: QuizAnswers,
+  opts: { noShip?: boolean } = {},
+): Promise<Gift[]> {
   try {
     const admin = createServiceClient();
     const cols = "id, title, description, image_url, price, tags, occasions, recipients, gender, affiliate_link, network, merchant_name, style, gift_type, avoid_flags, primary_interest";
@@ -89,6 +92,11 @@ export async function loadProductCandidates(answers: QuizAnswers): Promise<Gift[
     if (answers.recipient) queries.push(base().contains("recipients", [answers.recipient]).limit(400));
     if (answers.occasion) queries.push(base().contains("occasions", [answers.occasion]).limit(400));
     if (queries.length === 0) queries.push(base().limit(400));
+    // Step 7 "Last-minute ideas" / "An experience instead": gift cards and
+    // subscriptions rarely carry interest tags, so pull them in explicitly.
+    if (opts.noShip) {
+      queries.push(base().or("title.ilike.%gift card%,title.ilike.%egift%,title.ilike.%e-gift%,title.ilike.%subscription%,title.ilike.%membership%").limit(400));
+    }
 
     const results = await Promise.all(queries);
     const map = new Map<string, ProductRow>();

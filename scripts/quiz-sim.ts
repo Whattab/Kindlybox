@@ -13,7 +13,7 @@
 
 import { config } from "dotenv";
 import { createClient } from "@supabase/supabase-js";
-import { getRecommendations, styleOf, type Gift, type QuizAnswers } from "../src/lib/recommend";
+import { cheaperBudget, getRecommendations, styleOf, variantKey, type Gift, type QuizAnswers, type Refinement } from "../src/lib/recommend";
 import { isBlockedTitle } from "../src/lib/affiliate/blocklist";
 import { isMerchantExcluded } from "../src/lib/affiliate/merchant-exclusions";
 import { ALL_DEPTH_IDS, EMPTY_STATE, MIN_DEPTH_PRODUCTS, type V2State } from "../src/lib/quiz-v2/graph";
@@ -50,7 +50,7 @@ function v2(o: Partial<V2State>): V2State {
   return { ...EMPTY_STATE, ...o };
 }
 
-async function loadProductCandidates(answers: QuizAnswers): Promise<Gift[]> {
+async function loadProductCandidates(answers: QuizAnswers, opts: { noShip?: boolean } = {}): Promise<Gift[]> {
   const cols = "id, title, description, image_url, price, tags, occasions, recipients, gender, affiliate_link, network, merchant_name, style, gift_type, avoid_flags, primary_interest";
   const wantGender = (answers.gender || "").toLowerCase();
   const genders = wantGender === "male" || wantGender === "female" ? ["unisex", wantGender] : null;
@@ -67,6 +67,7 @@ async function loadProductCandidates(answers: QuizAnswers): Promise<Gift[]> {
   if (answers.recipient) queries.push(base().contains("recipients", [answers.recipient]).limit(400));
   if (answers.occasion) queries.push(base().contains("occasions", [answers.occasion]).limit(400));
   if (queries.length === 0) queries.push(base().limit(400));
+  if (opts.noShip) queries.push(base().or("title.ilike.%gift card%,title.ilike.%egift%,title.ilike.%e-gift%,title.ilike.%subscription%,title.ilike.%membership%").limit(400));
   const results = await Promise.all(queries);
   const map = new Map<string, any>();
   for (const r of results) for (const p of (r.data || [])) if (!map.has(p.id)) map.set(p.id, p);
@@ -110,10 +111,30 @@ async function run() {
     const recs = getRecommendations(sc.answers, catalogue as Gift[], { seed: 1, limit: 3 });
     console.log(`\n=== ${sc.name} === (${products.length} product candidates + ${gifts?.length || 0} gifts)`);
     console.log(`    age=${sc.answers.ageGroup || "-"} occasion=${sc.answers.occasion} interests=${JSON.stringify(sc.answers.interests)} budget=${sc.answers.budget}${sc.answers.avoidFlags ? " avoid=" + JSON.stringify(sc.answers.avoidFlags) : ""}`);
-    recs.forEach((r, i) => {
+    const show = (rs: typeof recs) => rs.forEach((r, i) => {
       const src = (r.gift as any).__source === "product" ? "prod" : "gift";
-      console.log(`  ${i + 1}. [${r.matchScorePercent}%] {${styleOf(r.gift)}} ${r.gift.name.slice(0, 44)} «occ:${(r.gift.occasions || []).join(",") || "-"}» «tag:${(r.gift.tags || []).join(",") || "-"}» (${src})`);
+      console.log(`  ${i + 1}. [${r.matchScorePercent}%] {${styleOf(r.gift)}} $${r.gift.price_min} ${r.gift.name.slice(0, 44)} «occ:${(r.gift.occasions || []).join(",") || "-"}» «tag:${(r.gift.tags || []).join(",") || "-"}» (${src})`);
     });
+    show(recs);
+
+    // `--refine`: what each Step 7 button would show next (mirrors refineResults:
+    // excludes the gifts above; "cheaper" steps the budget down + a price ceiling).
+    if (process.argv.includes("--refine")) {
+      const shown = { excludeIds: recs.map((r) => r.gift.id), excludeNames: recs.map((r) => variantKey(r.gift.name)) };
+      for (const kind of ["cheaper", "unique", "experience", "last-minute"] as Refinement[]) {
+        const answers = kind === "cheaper" ? { ...sc.answers, budget: cheaperBudget(sc.answers.budget) }
+          : kind === "experience" ? { ...sc.answers, giftFeel: "experience" } : sc.answers;
+        const prices = recs.map((r) => r.gift.price_min).filter((p) => p > 0);
+        const cat = kind === "cheaper" ? [...(gifts || []), ...(await loadProductCandidates(answers))]
+          : kind === "experience" || kind === "last-minute" ? [...(gifts || []), ...(await loadProductCandidates(answers, { noShip: true }))] : catalogue;
+        const next = getRecommendations(answers, cat as Gift[], {
+          seed: 1, limit: 3, ...shown,
+          ...(kind === "cheaper" ? { priceCeiling: prices.length ? Math.max(...prices) : undefined, strict: true } : { refinement: kind, strict: kind === "unique" }),
+        });
+        console.log(`  → ${kind}${next.length ? "" : ": (nothing new — page shows 'best matches' note)"}`);
+        show(next);
+      }
+    }
   }
   process.exit(0);
 }

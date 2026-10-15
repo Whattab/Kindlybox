@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getRecommendations, styleOf, variantKey, type Gift, type QuizAnswers } from "./recommend";
+import { cheaperBudget, getRecommendations, isNoShipGift, styleOf, variantKey, type Gift, type QuizAnswers } from "./recommend";
 
 let seq = 0;
 const g = (o: Partial<Gift>): Gift => ({
@@ -204,5 +204,58 @@ describe("variantKey (colour / size / florist variants)", () => {
     ];
     const out = names(getRecommendations({ ...base, interests: ["home decor"] }, pool, { seed: 1, limit: 3 }));
     expect(out.filter((n) => n.includes("Baby Blanket"))).toHaveLength(1);
+  });
+});
+
+describe("Step 7 refinements", () => {
+  const ans: QuizAnswers = { ...base, interests: ["coffee"] };
+  const grinder = g({ id: "grinder", name: "Coffee Grinder", tags: ["coffee"], price_min: 60, price_max: 60, style: ["practical"] });
+  const mug = g({ id: "mug", name: "Coffee Mug", tags: ["coffee"], price_min: 15, price_max: 15, style: ["practical"] });
+  const card = g({ id: "card", name: "Starbucks eGift Card", tags: ["coffee"], price_min: 25, price_max: 25 });
+  const sub = g({ id: "sub", name: "Coffee of the Month Subscription", tags: ["coffee"], price_min: 40, price_max: 40 });
+  const sign = g({ id: "sign", name: "Personalized Coffee Bar Sign", tags: ["coffee"], price_min: 30, price_max: 30 });
+  const pool = [grinder, mug, card, sub, sign];
+
+  it("never repeats gifts already shown (by id or variant name)", () => {
+    const out = names(getRecommendations(ans, pool, { seed: 1, limit: 5, excludeIds: ["grinder"], excludeNames: [variantKey("Black Coffee Mug")] }));
+    expect(out).not.toContain("Coffee Grinder");
+    expect(out).not.toContain("Coffee Mug");
+  });
+  it("cheaper: only gifts below the ceiling", () => {
+    const out = getRecommendations(ans, pool, { seed: 1, limit: 5, priceCeiling: 30 });
+    expect(out.every((r) => r.gift.price_min < 30)).toBe(true);
+  });
+  it("last-minute: only no-shipping gifts", () => {
+    expect(names(getRecommendations(ans, pool, { seed: 1, limit: 5, refinement: "last-minute" })).sort()).toEqual(["Coffee of the Month Subscription", "Starbucks eGift Card"]);
+  });
+  it("unique: practical items sink below sentimental ones", () => {
+    const out = names(getRecommendations(ans, [grinder, mug, sign], { seed: 1, limit: 3, refinement: "unique" }));
+    expect(out[0]).toBe("Personalized Coffee Bar Sign");
+  });
+  it("no-ship check ignores 'experience' in descriptions", () => {
+    expect(isNoShipGift(g({ name: "Ceramic Vase", description: "A beautiful experience for any room" }))).toBe(false);
+    expect(isNoShipGift(g({ name: "Pottery Class for Two" }))).toBe(true);
+    expect(isNoShipGift(g({ name: "Game Class Of 2021 Graduation Tee" }))).toBe(false);
+  });
+  it("budget steps down one band", () => {
+    expect(cheaperBudget("no-limit")).toBe("100-200");
+    expect(cheaperBudget("50-100")).toBe("25-50");
+    expect(cheaperBudget("under-25")).toBe("under-25");
+  });
+});
+
+describe("strict mode (refinements)", () => {
+  it("returns nothing instead of unrelated filler", () => {
+    const knife = g({ name: "Santoku Knife", tags: ["cooking"] });
+    expect(getRecommendations({ ...base, interests: ["coffee"] }, [knife], { seed: 1, strict: true })).toEqual([]);
+    expect(getRecommendations({ ...base, interests: ["coffee"] }, [knife], { seed: 1 })).toHaveLength(1);
+  });
+});
+
+describe("strict needs a real interest tag", () => {
+  it("drops loose description-only matches", () => {
+    const hoodie = g({ name: "Funny Hoodie", description: "perfect with your morning coffee", tags: ["fashion & accessories"] });
+    const press = g({ name: "French Press", tags: ["coffee"] });
+    expect(names(getRecommendations({ ...base, interests: ["coffee"] }, [hoodie, press], { seed: 1, limit: 3, strict: true }))).toEqual(["French Press"]);
   });
 });

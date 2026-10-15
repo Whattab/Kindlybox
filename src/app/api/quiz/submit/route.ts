@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { getRecommendations, type QuizAnswers } from "@/lib/recommend";
+import { type QuizAnswers } from "@/lib/recommend";
 import { parseV2State, toQuizAnswers } from "@/lib/quiz-v2/map";
-import { loadProductCandidates } from "@/lib/affiliate/candidates";
-import { generatePersonalizedReasons } from "@/lib/personalize";
 import { interpretFreeText } from "@/lib/ai-tags";
 import { isAmazonItem } from "@/lib/amazon-display";
 import { sendResultsEmail } from "@/lib/quiz-email";
+import { runRecommendation } from "@/lib/quiz-run";
 
 // Construct admin client that ignores RLS to securely save sessions regardless of user state
 const supabaseAdmin = createSupabaseClient(
@@ -32,128 +31,50 @@ export async function POST(request: Request) {
     // 1. Authenticate (optional for quiz)
     const { data: { user } } = await supabase.auth.getUser();
 
-    // 2. Fetch active gifts catalog utilizing secure user-context client
-    const { data: gifts, error: giftsError } = await supabaseAdmin
-      .from("gifts")
-      .select("*")
-      .eq("active", true);
-
-    if (giftsError) {
-      console.error("Gifts fetch error:", giftsError);
-      return NextResponse.json({ error: "Failed to load gift catalog" }, { status: 500 });
-    }
-
-    // 2b. Interpret the free-text note into APPROVED tags (fail-soft) and blend
+    // 2. Interpret the free-text note into APPROVED tags (fail-soft) and blend
     // the interpreted interests into the quiz interests, so free-text actually
-    // influences candidate selection + scoring. The full interpretation is
-    // stored on the session for Step 5 (avoid_flags aren't acted on yet).
+    // influences candidate selection + scoring.
     const interpreted = await interpretFreeText(freeText, supabaseAdmin);
     const effectiveInterests = Array.from(new Set([...(interests || []), ...interpreted.interests]));
-
-    // 3. Score and recommend top 3 gifts — a FREE BLEND of the curated catalogue
-    // and the affiliate products (pre-filtered to fit the answers). The scorer
-    // treats both identically, so the best 3 win regardless of source.
-    const productCandidates = await loadProductCandidates(
-      { recipient, occasion, interests: effectiveInterests, budget, ageGroup, gender, freeText },
-    );
-    const catalogue = [...(gifts || []), ...productCandidates];
-
-    // The seed rotates which of several equally-good gifts get shown, so two
-    // people giving identical answers don't always see the exact same three.
     // v2 adds the shopper's avoid chips, gift feel, level and relationship rules.
     const avoidFlags = Array.from(new Set([...(v2Answers?.avoidFlags || []), ...interpreted.avoid_flags]));
-    const recommendations = getRecommendations(
-      {
+
+    // 3. Recommend + save the session and picks (shared with Step 7 refinements).
+    const personalizationName = recipientName?.trim() || (user ? user.user_metadata?.first_name : firstName);
+    const run = await runRecommendation({
+      db: supabaseAdmin,
+      answers: {
         recipient, occasion, interests: effectiveInterests, budget, ageGroup, gender, freeText, avoidFlags,
         giftFeel: v2Answers?.giftFeel,
         experienceLevel: v2Answers?.experienceLevel,
         excludeIntimate: v2Answers?.excludeIntimate,
         excludeLuxe: v2Answers?.excludeLuxe,
       },
-      catalogue,
-      { seed: Date.now() },
-    );
+      // Mapped answers stay top-level (the results page reads them); v2 also
+      // keeps its raw state + version so old and new quizzes can be compared.
+      storedAnswers: {
+        recipient, occasion, interests, budget, ageGroup, gender, freeText, recipientName, interpreted,
+        ...(v2State ? { quizVersion: "v2", v2: v2State, avoidFlags, giftFeel: v2Answers?.giftFeel } : {}),
+      },
+      userId: user?.id || null,
+      emailCaptured: user ? user.email ?? null : email ?? null,
+      firstNameCaptured: user ? user.user_metadata?.first_name ?? null : firstName ?? null,
+      personalize: {
+        answers: { recipient, occasion, interests, budget, ageGroup, gender, freeText, recipientName: personalizationName },
+        recipientName,
+      },
+    });
 
-    if (recommendations.length === 0) {
-      return NextResponse.json({ error: "No matching gifts found for your criteria" }, { status: 404 });
-    }
-
-    // 4. Create the quiz session securely using the admin context
-    const { data: sessionData, error: sessionError } = await supabaseAdmin
-      .from("quiz_sessions")
-      .insert([
-        {
-          user_id: user?.id || null,
-          // Mapped answers stay top-level (the results page reads them); v2 also
-          // keeps its raw state + version so old and new quizzes can be compared.
-          answers: {
-            recipient, occasion, interests, budget, ageGroup, gender, freeText, recipientName, interpreted,
-            ...(v2State ? { quizVersion: "v2", v2: v2State, avoidFlags, giftFeel: v2Answers?.giftFeel } : {}),
-          },
-          email_captured: user ? user.email : email,
-          first_name_captured: user ? user.user_metadata?.first_name : firstName,
-        }
-      ])
-      .select("id")
-      .single();
-
-    if (sessionError || !sessionData) {
-      console.error("Session creation error:", sessionError);
+    if (!run.ok) {
+      if (run.reason === "no-matches") return NextResponse.json({ error: "No matching gifts found for your criteria" }, { status: 404 });
+      if (run.reason === "catalog") return NextResponse.json({ error: "Failed to load gift catalog" }, { status: 500 });
       return NextResponse.json({ error: "Failed to save quiz session" }, { status: 500 });
     }
+    const { sessionId, recommendations } = run;
 
-    const sessionId = sessionData.id;
-
-    // 5a. Generate personalized "why we picked this" notes in parallel.
-    //     Falls back to null on errors — quiz never breaks because of this.
-    const personalizationName = recipientName?.trim() || (user ? user.user_metadata?.first_name : firstName);
-    const personalizedReasons = await generatePersonalizedReasons(
-      { recipient, occasion, interests, budget, ageGroup, gender, freeText, recipientName: personalizationName },
-      recommendations.map((r) => r.gift),
-      recipientName,
-    );
-
-    // Attach the reason to each recommendation so the response + email use it.
-    recommendations.forEach((rec, i) => {
-      (rec as typeof rec & { personalizedReason: string | null }).personalizedReason =
-        personalizedReasons[i] ?? null;
-    });
-
-    // 5b. Save the suggestions (including the AI-generated reason). A pick is
-    //     either a curated gift (gift_id) or an affiliate product (product_id),
-    //     flagged by `source` so the results page reads the right table.
-    const suggestionsToInsert = recommendations.map((rec, index) => {
-      const isProduct = (rec.gift as any).__source === "product";
-      return {
-        session_id: sessionId,
-        gift_id: isProduct ? null : rec.gift.id,
-        product_id: isProduct ? (rec.gift as any).__productId : null,
-        source: isProduct ? "product" : "gift",
-        match_score: rec.matchScorePercent,
-        rank: index + 1,
-        personalized_reason: personalizedReasons[index] ?? null,
-      };
-    });
-
-    const { data: savedSuggestions, error: suggestionsError } = await supabaseAdmin
-      .from("gift_suggestions")
-      .insert(suggestionsToInsert)
-      .select("id, rank");
-
-    if (suggestionsError) {
-      console.error("Suggestions save error:", suggestionsError);
-    }
-
-    // The email's buy buttons use the tracked redirect (/go/s/<id>), so each
-    // pick needs its saved suggestion id.
-    recommendations.forEach((rec, i) => {
-      (rec as typeof rec & { suggestionId?: string }).suggestionId =
-        savedSuggestions?.find((s) => s.rank === i + 1)?.id;
-    });
-
-    // 6. Send the email via Resend
+    // 4. Send the email via Resend
     const recipientEmail = user ? user.email : email;
-    
+
     // (v2 posts no email — the shopper opts in on the results page, Step 6c.)
     if (recipientEmail) {
       // Fail-soft: we don't fail the whole request just because email failed.

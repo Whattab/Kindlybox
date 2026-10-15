@@ -73,6 +73,7 @@ const W = {
   purchasable: 4,        // has a real destination we can send the buyer to
   ageFit: 8,             // clearly suits the recipient's age group
   gearUpgrade: 6,        // "has all the gear": premium upgrades, consumables, experiences
+  uniquePenalty: 20,     // "More unique" refinement: plain practical items sink below a tier
 };
 
 // Vocabulary for each quiz interest, so an interest can match a gift that was
@@ -291,11 +292,56 @@ function milestoneAge(text: string): number | null {
   return m ? parseInt(m[1], 10) : null;
 }
 
+// ---- Step 7 refinements ----------------------------------------------------
+export type Refinement = "cheaper" | "unique" | "experience" | "last-minute";
+
+export interface RecommendOptions {
+  seed?: number;
+  limit?: number;
+  /** Gift/product ids already shown in this refinement chain. */
+  excludeIds?: string[];
+  /** variantKey()s of gifts already shown (so a colour variant can't sneak back). */
+  excludeNames?: string[];
+  /** Only gifts priced strictly below this ("Cheaper"). */
+  priceCeiling?: number;
+  refinement?: Refinement;
+  /** Return nothing rather than fall back to gifts that don't match the
+   *  answers (refinements: "nothing new" beats unrelated cheap filler). */
+  strict?: boolean;
+}
+
+// Gifts that need no shipping — e-gift cards, digital items, subscriptions,
+// classes, experiences ("Last-minute ideas", decisions §3.4). Matched on the
+// TITLE + type tags only: descriptions say "experience"/"gift card" about
+// ordinary physical products far too often.
+// No bare "class": print-on-demand shirts say "Class Of 2021".
+const NO_SHIP_WORDS = ["gift card", "giftcard", "egift", "e-gift", "subscription", "membership", "voucher", "masterclass", "online class", "cooking class", "class for two", "workshop", "lesson", "e-book", "ebook", "digital download"];
+export function isNoShipGift(gift: Gift): boolean {
+  const gt = (gift.gift_type || []).map(normKey);
+  if (gt.includes("digital") || gt.includes("experience")) return true;
+  const title = (gift.name || "").toLowerCase();
+  return NO_SHIP_WORDS.some((w) => containsWord(title, w));
+}
+
+// "An experience instead": a real experience tag, or something no-ship.
+export function isExperienceGift(gift: Gift): boolean {
+  return (gift.style || []).map(normKey).includes("experience") || isNoShipGift(gift);
+}
+
+// "Cheaper": the next budget band down (the ceiling rule then keeps cheaper
+// relevant items too). Already the lowest band → stays there.
+const BUDGET_STEPS = ["under-25", "25-50", "50-100", "100-200", "no-limit"];
+export function cheaperBudget(budget: string): string {
+  const i = BUDGET_STEPS.indexOf(budget);
+  return i <= 0 ? "under-25" : BUDGET_STEPS[i - 1];
+}
+
 // Colour and size words that only distinguish VARIANTS of one product.
 const VARIANT_WORDS = new Set([
   "black", "white", "grey", "gray", "silver", "gold", "rose gold", "red", "pink", "blue", "navy", "green",
   "olive", "yellow", "orange", "purple", "lavender", "beige", "brown", "tan", "cream", "ivory", "teal",
   "small", "medium", "large", "xl", "xxl", "xs", "mini",
+  "boy", "girl", "boys", "girls", // "Baby Boy / Baby Girl Balloon Bunch"
 ]);
 
 /**
@@ -331,7 +377,7 @@ function seededShuffle<T>(items: T[], seed: number): T[] {
 export function getRecommendations(
   answers: QuizAnswers,
   catalogue: Gift[],
-  options: { seed?: number; limit?: number } = {},
+  options: RecommendOptions = {},
 ): GiftScore[] {
   const limit = options.limit ?? 3;
   const seed = options.seed ?? 1;
@@ -350,7 +396,20 @@ export function getRecommendations(
   const themeSignals = getThemeSignals(combinedSignalText);
 
   // 1. Filter by budget — a ceiling, so cheaper relevant items are never hidden.
-  const filteredGifts = catalogue.filter(gift => withinBudget(gift.price_min, answers.budget));
+  // Step 7 refinements: never repeat a gift (or a colour/size variant of one)
+  // the shopper has already seen in this chain, and honour a price ceiling.
+  const excludeIds = new Set(options.excludeIds || []);
+  const excludeKeys = new Set(options.excludeNames || []);
+  const unseen = excludeIds.size === 0 && excludeKeys.size === 0 ? catalogue : catalogue.filter(
+    (gift) => !excludeIds.has(gift.id) && !excludeKeys.has(variantKey(gift.name || "")),
+  );
+  const underCeiling = options.priceCeiling == null ? unseen : unseen.filter((gift) => (gift.price_min ?? 0) < options.priceCeiling!);
+  // "Last-minute ideas" / "An experience instead" only offer gifts that fit.
+  const refineFit = options.refinement === "last-minute" ? underCeiling.filter(isNoShipGift)
+    : options.refinement === "experience" ? underCeiling.filter(isExperienceGift)
+    : underCeiling;
+
+  const filteredGifts = refineFit.filter(gift => withinBudget(gift.price_min, answers.budget));
 
   // 1b. Exclude gifts marked for the opposite gender. Relationship (recipient)
   //     and gender are separate answers, so a men's item must be filtered by
@@ -471,11 +530,13 @@ export function getRecommendations(
     // interest's vocabulary appearing in the name/description scores half, so
     // an untagged-but-obviously-relevant gift still surfaces.
     let interestHits = 0;
+    let exactHits = 0; // tagged matches only (strict refinements ignore loose word hits)
     let signalHit = false; // matched the buyer's free-text description or theme
     for (const interest of interests.slice(0, W.maxInterests)) {
       if (listIncludes(gift.tags, interest)) {
         score += W.interestExact;
         interestHits++;
+        exactHits++;
         reasons.push(`tagged ${interest}`);
         continue;
       }
@@ -546,6 +607,14 @@ export function getRecommendations(
       }
     }
 
+    // "More unique" (Step 7): push plain everyday items down so sentimental /
+    // fun / treat / experience picks lead, without dropping relevance entirely.
+    if (options.refinement === "unique") {
+      const feel = styleOf(gift);
+      if (feel === "practical") score -= W.uniquePenalty;
+      else if (feel === "sentimental") score += W.ageFit; // personalized / keepsake items
+    }
+
     // Prefer something the buyer can actually click through and buy. Only
     // destination_url proves that: slug and affiliate_url are auto-generated
     // for every gift, so including them made this bonus fire for all of them —
@@ -574,7 +643,9 @@ export function getRecommendations(
       qualified: specificOccasion
         ? occasionMatch
         : (interests.length > 0
-            ? interestHits > 0
+            // Strict refinements need a real interest TAG: a loose word in a
+            // description let a drug-joke hoodie into "cheaper coffee gifts".
+            ? (options.strict ? exactHits > 0 : interestHits > 0)
             : freeTextTokens.length > 0 || themeSignals.length > 0
               ? signalHit
               : occasionMatch || listIncludes(gift.recipients, answers.recipient)),
@@ -647,6 +718,6 @@ export function getRecommendations(
   // gifts that don't match what the shopper asked for. Only when nothing
   // qualifies at all do we fall back, so the quiz never dead-ends.
   const qualified = pickDiverse(shuffled.filter((s) => s.qualified));
-  if (qualified.length > 0) return qualified;
+  if (qualified.length > 0 || options.strict) return qualified;
   return pickDiverse(shuffled);
 }
