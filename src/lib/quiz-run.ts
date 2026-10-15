@@ -4,7 +4,8 @@
 // Free-text interpretation and emailing stay with the callers.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getRecommendations, type GiftScore, type QuizAnswers, type RecommendOptions } from "./recommend";
+import { getRecommendations, variantKey, type GiftScore, type QuizAnswers, type RecommendOptions } from "./recommend";
+import { normalizeSuggestion, SUGGESTION_SELECT } from "./quiz-email";
 import { loadProductCandidates } from "./affiliate/candidates";
 import { generatePersonalizedReasons } from "./personalize";
 import { parseV2State, toQuizAnswers } from "./quiz-v2/map";
@@ -116,4 +117,78 @@ export function answersFromSession(stored: Record<string, any>): QuizAnswers {
     interests: Array.from(new Set([...(base.interests || []), ...(interpreted.interests || [])])),
     avoidFlags: Array.from(new Set([...(base.avoidFlags || []), ...(interpreted.avoid_flags || [])])),
   };
+}
+
+/**
+ * "Not quite" (Step 7b): keep the other picks, replace ONE with the next-best
+ * gift not yet shown in this chain, and save it as a new session (its own
+ * link; Back returns). Only the new pick gets a fresh "why" note.
+ */
+export async function swapOnePick(input: {
+  db: SupabaseClient;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- stored answers are free-form JSON
+  parent: { id: string; user_id: string | null; answers: Record<string, any> };
+  suggestionId: string;
+}): Promise<{ ok: true; sessionId: string } | { ok: false; reason: "not-found" | "no-matches" | "session" }> {
+  const { db, parent, suggestionId } = input;
+  const stored = parent.answers || {};
+
+  const { data: sug } = await db.from("gift_suggestions").select(SUGGESTION_SELECT).eq("session_id", parent.id).order("rank");
+  const current = (sug || []).map((s) => ({ row: s, n: normalizeSuggestion(s) })).filter((x) => !!x.n);
+  const target = current.find((x) => x.row.id === suggestionId);
+  if (!target) return { ok: false, reason: "not-found" };
+
+  const shownIds = Array.from(new Set([...(stored.shown?.ids || []), ...current.map((x) => x.n!.gift.id)]));
+  const shownNames = Array.from(new Set([...(stored.shown?.names || []), ...current.map((x) => variantKey(x.n!.gift.name || ""))]));
+
+  const answers = answersFromSession(stored);
+  const { data: gifts } = await db.from("gifts").select("*").eq("active", true);
+  const catalogue = [...(gifts || []), ...(await loadProductCandidates(answers))];
+  const pickOne = (strict: boolean) => getRecommendations(answers, catalogue, {
+    seed: Date.now(), limit: 1, excludeIds: shownIds, excludeNames: shownNames, strict,
+  })[0];
+  // Prefer a genuine match; only fall back to the best remaining gift if none.
+  const replacement = pickOne(true) || pickOne(false);
+  if (!replacement) return { ok: false, reason: "no-matches" };
+
+  const { data: session, error } = await db.from("quiz_sessions").insert([{
+    user_id: parent.user_id,
+    answers: {
+      ...stored, refinedFrom: parent.id, refinement: "swap",
+      refinementDepth: Number(stored.refinementDepth || 0) + 1,
+      shown: { ids: shownIds, names: shownNames },
+    },
+    email_captured: null,      // the new page offers "Email me these picks" again
+    first_name_captured: null,
+  }]).select("id").single();
+  if (error || !session) {
+    console.error("Swap session error:", error);
+    return { ok: false, reason: "session" };
+  }
+
+  const [reason] = await generatePersonalizedReasons(
+    { ...answers, recipientName: stored.recipientName }, [replacement.gift], stored.recipientName,
+  );
+  const isProduct = (replacement.gift as { __source?: string }).__source === "product";
+  const rows = current.map(({ row, n }) => row.id === suggestionId
+    ? {
+        session_id: session.id, rank: row.rank,
+        gift_id: isProduct ? null : replacement.gift.id,
+        product_id: isProduct ? (replacement.gift as { __productId?: string }).__productId : null,
+        source: isProduct ? "product" : "gift",
+        match_score: replacement.matchScorePercent,
+        personalized_reason: reason ?? null,
+      }
+    : {
+        session_id: session.id, rank: row.rank,
+        gift_id: n!.isProduct ? null : n!.gift.id,
+        product_id: n!.isProduct ? row.product_id : null,
+        source: n!.isProduct ? "product" : "gift",
+        match_score: row.match_score,
+        personalized_reason: row.personalized_reason,
+      });
+  const { error: sugErr } = await db.from("gift_suggestions").insert(rows);
+  if (sugErr) console.error("Swap suggestions error:", sugErr);
+
+  return { ok: true, sessionId: session.id };
 }

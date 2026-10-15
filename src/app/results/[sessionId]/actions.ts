@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { createServiceClient } from "@/utils/supabase/admin";
 import { looksLikeEmail, suggestEmailFix } from "@/lib/email-typo";
 import { loadSessionPicks, normalizeSuggestion, sendResultsEmail, SUGGESTION_SELECT } from "@/lib/quiz-email";
-import { answersFromSession, runRecommendation } from "@/lib/quiz-run";
+import { answersFromSession, runRecommendation, swapOnePick } from "@/lib/quiz-run";
 import { cheaperBudget, variantKey, type RecommendOptions, type Refinement } from "@/lib/recommend";
 
 export async function saveGiftToProfile(formData: FormData) {
@@ -169,4 +169,20 @@ export async function refineResults(formData: FormData) {
 
   if (!run.ok) redirect(`/results/${sessionId}?refine=none&kind=${kind}`);
   redirect(`/results/${run.sessionId}`);
+}
+
+// ── "Not quite" swap on one gift (Step 7b) ────────────────────────────────
+export async function swapPick(formData: FormData) {
+  const sessionId = String(formData.get("session_id") || "");
+  const suggestionId = String(formData.get("suggestion_id") || "");
+  if (!UUID.test(sessionId) || !UUID.test(suggestionId)) redirect("/quiz");
+
+  const db = createServiceClient();
+  const { data: parent } = await db.from("quiz_sessions").select("id, answers, user_id").eq("id", sessionId).maybeSingle();
+  if (!parent) redirect("/quiz");
+  if (Number(parent.answers?.refinementDepth || 0) >= MAX_REFINE_DEPTH) redirect(`/results/${sessionId}?refine=limit`);
+
+  const res = await swapOnePick({ db, parent, suggestionId });
+  if (!res.ok) redirect(`/results/${sessionId}?refine=none&kind=swap`);
+  redirect(`/results/${res.sessionId}`);
 }
