@@ -5,7 +5,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createServiceClient } from "@/utils/supabase/admin";
 import { looksLikeEmail, suggestEmailFix } from "@/lib/email-typo";
-import { loadSessionPicks, sendResultsEmail } from "@/lib/quiz-email";
+import { loadSessionPicks, normalizeSuggestion, sendResultsEmail, SUGGESTION_SELECT } from "@/lib/quiz-email";
+import { answersFromSession, runRecommendation } from "@/lib/quiz-run";
+import { cheaperBudget, variantKey, type RecommendOptions, type Refinement } from "@/lib/recommend";
 
 export async function saveGiftToProfile(formData: FormData) {
   const supabase = createClient();
@@ -101,4 +103,70 @@ export async function emailMyPicks(
     return { ok: false, error: "We couldn't send the email. Please try again." };
   }
   return { ok: true };
+}
+
+// ── Refinement buttons (Step 7) ──────────────────────────────────────────
+// "Cheaper / More unique / An experience instead / Last-minute ideas" re-run
+// the recommender with the original answers plus the refinement, and open the
+// result as a NEW session (its own link; Back returns to the original). Every
+// gift already shown in the chain is excluded, so a refinement never repeats.
+
+const REFINEMENTS: Refinement[] = ["cheaper", "unique", "experience", "last-minute"];
+const MAX_REFINE_DEPTH = 10;
+
+export async function refineResults(formData: FormData) {
+  const sessionId = String(formData.get("session_id") || "");
+  const kind = String(formData.get("kind") || "") as Refinement;
+  if (!UUID.test(sessionId) || !REFINEMENTS.includes(kind)) redirect("/quiz");
+
+  const db = createServiceClient();
+  const { data: parent } = await db.from("quiz_sessions").select("id, answers, user_id").eq("id", sessionId).maybeSingle();
+  if (!parent) redirect("/quiz");
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- stored answers are free-form JSON
+  const stored: Record<string, any> = parent.answers || {};
+  const depth = Number(stored.refinementDepth || 0);
+  if (depth >= MAX_REFINE_DEPTH) redirect(`/results/${sessionId}?refine=limit`);
+
+  // Everything shown so far in this chain = earlier refinements + these picks.
+  const { data: sug } = await db.from("gift_suggestions").select(SUGGESTION_SELECT).eq("session_id", sessionId);
+  const current = (sug || []).map(normalizeSuggestion).filter((n): n is NonNullable<typeof n> => !!n);
+  const shownIds: string[] = Array.from(new Set([...(stored.shown?.ids || []), ...current.map((c) => c.gift.id)]));
+  const shownNames: string[] = Array.from(new Set([...(stored.shown?.names || []), ...current.map((c) => variantKey(c.gift.name || ""))]));
+
+  const answers = answersFromSession(stored);
+  const options: RecommendOptions = { excludeIds: shownIds, excludeNames: shownNames };
+  let budget = answers.budget;
+  if (kind === "cheaper") {
+    // Cheaper than the priciest current pick (the cheapest was often ~$8,
+    // which left only unrelated filler) and one budget band down.
+    budget = cheaperBudget(budget);
+    const prices = current.map((c) => Number(c.gift.price_min)).filter((p) => p > 0);
+    if (prices.length) options.priceCeiling = Math.max(...prices);
+    options.strict = true;
+  } else {
+    options.refinement = kind;
+    // "More unique" must stay on-topic; gift cards / experiences are generic
+    // by nature, so those two may fall back to the best non-matching ones.
+    if (kind === "unique") options.strict = true;
+  }
+  const refinedAnswers = { ...answers, budget, giftFeel: kind === "experience" ? "experience" : answers.giftFeel };
+
+  const run = await runRecommendation({
+    db,
+    answers: refinedAnswers,
+    storedAnswers: {
+      ...stored, budget,
+      refinedFrom: sessionId, refinement: kind, refinementDepth: depth + 1,
+      shown: { ids: shownIds, names: shownNames },
+    },
+    userId: parent.user_id ?? null,
+    emailCaptured: null,     // the new page offers "Email me these picks" again
+    firstNameCaptured: null,
+    personalize: { answers: { ...refinedAnswers, recipientName: stored.recipientName }, recipientName: stored.recipientName },
+    options,
+  });
+
+  if (!run.ok) redirect(`/results/${sessionId}?refine=none&kind=${kind}`);
+  redirect(`/results/${run.sessionId}`);
 }

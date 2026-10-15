@@ -7,6 +7,7 @@ import { ShareButtons } from "@/components/ShareButtons";
 import { GiftImage } from "@/components/GiftImage";
 import { saveGiftToProfile } from "./actions";
 import { EmailPicksForm } from "./EmailPicksForm";
+import { RefineBar } from "./RefineBar";
 import { normalizeSuggestion, SUGGESTION_SELECT } from "@/lib/quiz-email";
 import { rankLabel, interestChips, pronounFor } from "@/lib/quiz-labels";
 import { DigitalGiftCallout } from "@/components/DigitalGiftCallout";
@@ -14,10 +15,18 @@ import { suggestDigitalExtra } from "@/lib/digital-suggest";
 import { extrasEnabled } from "@/lib/extras";
 import { isAmazonItem, AMAZON_PRICE_PLACEHOLDER } from "@/lib/amazon-display";
 
+// Step 7: what a refined page says it's showing, and the "couldn't refine" notices.
+const REFINED_LABEL: Record<string, string> = {
+  cheaper: "Cheaper picks", unique: "More unique picks",
+  experience: "Experiences & gift cards", "last-minute": "Last-minute ideas — no shipping needed",
+};
+
 export default async function ResultsPage({
   params,
+  searchParams,
 }: {
   params: { sessionId: string };
+  searchParams?: { refine?: string; kind?: string };
 }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -79,6 +88,13 @@ export default async function ResultsPage({
 
       <div className="max-w-5xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
         <div className="text-center mb-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          {session.answers?.refinedFrom && (
+            <div className="mb-5 inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-full bg-accent/10 px-4 py-1.5 text-sm text-primary">
+              <span className="font-semibold">{REFINED_LABEL[session.answers.refinement] || "New picks"}</span>
+              <span className="text-gray-400">·</span>
+              <Link href={`/results/${session.answers.refinedFrom}`} className="text-accent underline underline-offset-2">← previous picks</Link>
+            </div>
+          )}
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent mb-4">
             {eyebrow}
           </p>
@@ -112,6 +128,16 @@ export default async function ResultsPage({
           </div>
           {/* v2 quiz asks for the email here, after the gifts (Step 6c). */}
           {!session.email_captured && <EmailPicksForm sessionId={session.id} />}
+          {searchParams?.refine === "none" && (
+            <p className="mt-6 text-sm text-gray-600">
+              We couldn&apos;t find anything new for &ldquo;{REFINED_LABEL[searchParams.kind || ""]?.toLowerCase() || "that"}&rdquo; — these are still the best matches for your answers.
+            </p>
+          )}
+          {searchParams?.refine === "limit" ? (
+            <p className="mt-6 text-sm text-gray-600">You&apos;ve explored a lot of ideas! <Link href="/quiz" className="font-semibold text-accent underline">Retake the quiz</Link> to start fresh.</p>
+          ) : (
+            <RefineBar sessionId={session.id} />
+          )}
         </div>
 
         <div className="flex flex-col gap-6 max-w-2xl mx-auto">
