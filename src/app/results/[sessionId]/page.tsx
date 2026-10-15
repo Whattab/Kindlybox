@@ -8,6 +8,7 @@ import { GiftImage } from "@/components/GiftImage";
 import { saveGiftToProfile } from "./actions";
 import { EmailPicksForm } from "./EmailPicksForm";
 import { RefineBar } from "./RefineBar";
+import { SwapButton } from "./SwapButton";
 import { normalizeSuggestion, SUGGESTION_SELECT } from "@/lib/quiz-email";
 import { rankLabel, interestChips, pronounFor } from "@/lib/quiz-labels";
 import { DigitalGiftCallout } from "@/components/DigitalGiftCallout";
@@ -19,6 +20,7 @@ import { isAmazonItem, AMAZON_PRICE_PLACEHOLDER } from "@/lib/amazon-display";
 const REFINED_LABEL: Record<string, string> = {
   cheaper: "Cheaper picks", unique: "More unique picks",
   experience: "Experiences & gift cards", "last-minute": "Last-minute ideas — no shipping needed",
+  swap: "Swapped one gift",
 };
 
 export default async function ResultsPage({
@@ -130,7 +132,9 @@ export default async function ResultsPage({
           {!session.email_captured && <EmailPicksForm sessionId={session.id} />}
           {searchParams?.refine === "none" && (
             <p className="mt-6 text-sm text-gray-600">
-              We couldn&apos;t find anything new for &ldquo;{REFINED_LABEL[searchParams.kind || ""]?.toLowerCase() || "that"}&rdquo; — these are still the best matches for your answers.
+              {searchParams.kind === "swap"
+                ? <>We couldn&apos;t find another gift to swap in — these are still the best matches for your answers.</>
+                : <>We couldn&apos;t find anything new for &ldquo;{REFINED_LABEL[searchParams.kind || ""]?.toLowerCase() || "that"}&rdquo; — these are still the best matches for your answers.</>}
             </p>
           )}
           {searchParams?.refine === "limit" ? (
@@ -225,6 +229,7 @@ export default async function ResultsPage({
                       Save to profile
                     </Link>
                   )}
+                  <SwapButton sessionId={params.sessionId} suggestionId={suggestion.id} />
                 </div>
               </div>
             );
