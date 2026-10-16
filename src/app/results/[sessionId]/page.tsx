@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { createServiceClient } from "@/utils/supabase/admin";
-import { ArrowRight, RedoDot, Check } from "lucide-react";
+import { ArrowRight, RedoDot, Check, Users } from "lucide-react";
 import { ShareButtons } from "@/components/ShareButtons";
 import { GiftImage } from "@/components/GiftImage";
 import { saveGiftToProfile } from "./actions";
@@ -127,6 +127,13 @@ export default async function ResultsPage({
               Retake Quiz
             </Link>
             <ShareButtons shareLink={shareLink} />
+            <Link
+              href={`/together/new?s=${session.id}`}
+              className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-accent transition-colors bg-white px-4 py-2 rounded-full shadow-sm border border-gray-200"
+            >
+              <Users className="w-4 h-4" />
+              Gift together
+            </Link>
           </div>
           {/* v2 quiz asks for the email here, after the gifts (Step 6c). */}
           {!session.email_captured && <EmailPicksForm sessionId={session.id} />}

@@ -339,3 +339,10 @@ The quiz submit awaits 3 Gemini calls and an email send before responding. Both 
 - **Where the quiz needs gifts** panel + **Needs attention** list with a conservative "Fill missing tags with AI".
 - **Live findings:** fishing/hiking/camping/baking 0 gifts; holidays / just because / sympathy / thank you 0; 4 Amazon gifts with placeholder images.
 - **Verified:** 133 tests; tsc/lint clean; AI suggestions sensible; panels computed on live data. Owner checks the admin page after deploy.
+
+### Gift together — group gifting, option 1 (2026-10-15, branch `group-gift`)
+- **No money handled by KindlyBox.** Results page → **Gift together** → `/together/new` (organiser name, note, Venmo / PayPal.me / Cash App) → shareable `/together/<id>`. Friends join by name (no login), vote on the picks; organiser chooses the gift and types the total (never pre-filled for Amazon — Associates price rule); page shows the per-person split (rounded up to the cent) and pay-the-organiser links (PayPal / Cash App pre-fill the amount). Only the organiser sees **Buy the gift** (tracked `/go/s/<id>`).
+- **Identity:** httpOnly cookies scoped to `/together` — organiser manage key + member id; private `?k=<key>` organiser link for other devices (never put in the creator's address bar). Caps: 50 members, 20 groups per session. Helpers + tests in [group-gift.ts](src/lib/group-gift.ts); actions in [together/actions.ts](src/app/together/actions.ts).
+- **Migration** `20261015_group_gifts.sql` (service-role only, RLS on, no policies) — applied to prod by the owner 2026-10-15.
+- **Gotcha found in testing:** Next 14 cached the Supabase reads on the group page despite `dynamic = "force-dynamic"` (new members didn't appear); fixed with `unstable_noStore()`. Watch for this on any page whose data changes between requests.
+- **Verified:** Edge 390×844 locally against prod data — organiser + 2 friends, invalid-handle error, votes/tallies, $90 ÷ 3 = $30.00, friends see no organiser controls; test rows deleted. 142 tests; build passes.
