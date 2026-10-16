@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { unstable_noStore as noStore } from "next/cache";
 import type { Metadata } from "next";
 import { ArrowRight, Users } from "lucide-react";
 import { createServiceClient } from "@/utils/supabase/admin";
@@ -22,6 +23,8 @@ type Member = { id: string; name: string; vote_suggestion_id: string | null; is_
 export default async function GroupPage({
   params, searchParams,
 }: { params: { id: string }; searchParams?: { k?: string; new?: string } }) {
+  // Votes and members change every few seconds — never serve a cached Supabase read.
+  noStore();
   if (!UUID.test(params.id)) return notFound();
   const db = createServiceClient();
 
