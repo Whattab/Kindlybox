@@ -4,13 +4,14 @@ import { unstable_noStore as noStore } from "next/cache";
 import type { Metadata } from "next";
 import { ArrowRight, Users } from "lucide-react";
 import { createServiceClient } from "@/utils/supabase/admin";
+import { createClient } from "@/utils/supabase/server";
 import { GiftImage } from "@/components/GiftImage";
 import { normalizeSuggestion, SUGGESTION_SELECT } from "@/lib/quiz-email";
 import { isAmazonItem, AMAZON_PRICE_PLACEHOLDER } from "@/lib/amazon-display";
 import { payLinks, sameKey, splitShare, tallyVotes } from "@/lib/group-gift";
 import { viewerFor } from "../viewer";
 import {
-  ChooseGift, CopyText, InviteButton, JoinCard, RemoveMemberButton, UnlockButton, VoteButton,
+  ChooseGift, CopyText, EmailLinkForm, InviteButton, JoinCard, RemoveMemberButton, UnlockButton, VoteButton,
 } from "./GroupControls";
 
 export const dynamic = "force-dynamic";
@@ -38,11 +39,24 @@ export default async function GroupPage({
   ]);
   const members = (memberRows || []) as Member[];
 
-  // Who is looking? Organiser = holds the key (cookie, or the private ?k= link).
+  // Who is looking? Organiser = holds the key (cookie, or the private ?k= link),
+  // or is signed in to the account the group is linked to.
   const viewer = viewerFor(group.id);
   const urlKey = searchParams?.k || null;
-  const orgKey = sameKey(group.manage_key, urlKey) ? urlKey : sameKey(group.manage_key, viewer.key) ? viewer.key : null;
-  const me = members.find((m) => m.id === viewer.memberId) || null;
+  const { data: { user } } = await createClient().auth.getUser();
+  const byAccount = !!user && group.organiser_user_id === user.id;
+  const orgKey: string | null = sameKey(group.manage_key, urlKey) || sameKey(group.manage_key, viewer.key) || byAccount
+    ? group.manage_key : null;
+
+  // A signed-in organiser's group joins their dashboard the first time they open it.
+  let linked = !!group.organiser_user_id;
+  if (orgKey && user && !linked) {
+    const { error } = await db.from("group_gifts").update({ organiser_user_id: user.id, organiser_email: user.email ?? null })
+      .eq("id", group.id).is("organiser_user_id", null);
+    linked = !error;
+  }
+  const me = members.find((m) => m.id === viewer.memberId)
+    || (orgKey ? members.find((m) => m.is_organiser) : null) || null;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const picks = (suggestions || []).flatMap((s: any) => {
@@ -90,13 +104,31 @@ export default async function GroupPage({
           <div className="mt-5"><InviteButton link={inviteLink} title={headline} /></div>
         </div>
 
-        {orgKey && searchParams?.new === "1" && (
-          <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-gray-700 space-y-2">
+        {orgKey && linked && searchParams?.new === "1" && (
+          <div className="rounded-2xl border border-accent/30 bg-accent/5 p-4 text-sm text-gray-700 space-y-1">
             <p className="font-semibold text-primary">Your group page is ready 🎉</p>
-            <p>Tap <strong>Invite friends</strong> to send the link. To manage the group from another phone or computer, keep this private organiser link (don&apos;t share it):</p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 truncate rounded bg-white px-2 py-1 text-xs">{organiserLink}</code>
-              <CopyText text={organiserLink} />
+            <p>Tap <strong>Invite friends</strong> to send the link. It&apos;s saved to your account — find it any time under{" "}
+              <Link href="/dashboard/group-gifts" className="font-semibold text-accent underline">Dashboard → Group Gifts</Link>.</p>
+          </div>
+        )}
+
+        {/* Not signed in: give the organiser ways not to lose the group. */}
+        {orgKey && !linked && (
+          <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-gray-700 space-y-3">
+            {searchParams?.new === "1" && <p className="font-semibold text-primary">Your group page is ready 🎉 Tap <strong>Invite friends</strong> to send the link.</p>}
+            <p className="font-semibold text-primary">Don&apos;t lose your group</p>
+            <p>
+              <Link href="/auth/login" className="font-semibold text-accent underline">Sign in</Link> or{" "}
+              <Link href="/auth/signup" className="font-semibold text-accent underline">create a free account</Link>{" "}
+              on this device and it&apos;s saved under Dashboard → Group Gifts, so you can pick up from any device.
+            </p>
+            <EmailLinkForm groupId={group.id} orgKey={orgKey} />
+            <div>
+              <p className="mb-1">Or keep this private organiser link (don&apos;t share it):</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 truncate rounded bg-white px-2 py-1 text-xs">{organiserLink}</code>
+                <CopyText text={organiserLink} />
+              </div>
             </div>
           </div>
         )}
@@ -176,7 +208,7 @@ export default async function GroupPage({
                     {voters.length > 0 && <span className="text-gray-400"> · {voters.join(", ")}</span>}
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
-                    {me && <VoteButton groupId={group.id} suggestionId={p.id} mine={me.vote_suggestion_id === p.id} />}
+                    {me && <VoteButton groupId={group.id} suggestionId={p.id} mine={me.vote_suggestion_id === p.id} orgKey={orgKey} />}
                     {orgKey && chosen?.id !== p.id && (
                       <ChooseGift groupId={group.id} suggestionId={p.id} orgKey={orgKey} defaultTotal={p.defaultTotal} />
                     )}

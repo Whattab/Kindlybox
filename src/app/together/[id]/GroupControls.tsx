@@ -6,7 +6,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Copy, Loader2, Share2, X } from "lucide-react";
-import { castVote, joinGroup, leaveGroup, lockInGift, removeMember, unlockGift, type GroupResult } from "../actions";
+import { castVote, emailOrganiserLink, joinGroup, leaveGroup, lockInGift, removeMember, unlockGift, type GroupResult } from "../actions";
 import { inputClass } from "../new/CreateGroupForm";
 
 function useAction() {
@@ -109,12 +109,12 @@ export function JoinCard({ groupId, picks, me }: {
   );
 }
 
-export function VoteButton({ groupId, suggestionId, mine }: { groupId: string; suggestionId: string; mine: boolean }) {
+export function VoteButton({ groupId, suggestionId, mine, orgKey }: { groupId: string; suggestionId: string; mine: boolean; orgKey?: string | null }) {
   const { busy, error, run } = useAction();
   if (mine) return <span className="inline-flex items-center gap-1 text-sm font-semibold text-accent"><Check className="w-4 h-4" /> Your vote</span>;
   return (
     <>
-      <button type="button" disabled={busy} onClick={() => run(() => castVote(groupId, suggestionId))}
+      <button type="button" disabled={busy} onClick={() => run(() => castVote(groupId, suggestionId, orgKey))}
         className="rounded-full border border-primary/15 bg-white px-4 py-1.5 text-sm font-semibold text-primary hover:bg-primary/5 disabled:opacity-50">
         {busy ? "…" : "Vote for this"}
       </button>
@@ -170,5 +170,26 @@ export function RemoveMemberButton({ groupId, memberId, orgKey, name }: { groupI
       className="ml-1 rounded-full p-0.5 text-gray-400 hover:bg-gray-100 hover:text-red-600">
       <X className="w-3.5 h-3.5" />
     </button>
+  );
+}
+
+export function EmailLinkForm({ groupId, orgKey }: { groupId: string; orgKey: string }) {
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const { busy, error, run } = useAction();
+  if (sent) return <p className="font-semibold text-accent"><Check className="inline w-4 h-4 mr-1" />Sent! Check your inbox (and spam folder).</p>;
+  return (
+    <form onSubmit={async (e) => { e.preventDefault(); if (await run(() => emailOrganiserLink(groupId, email, orgKey))) setSent(true); }}
+      className="space-y-2">
+      <p>Email me my organiser link:</p>
+      <div className="flex gap-2">
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required maxLength={254}
+          className={inputClass} placeholder="you@example.com" autoComplete="email" inputMode="email" />
+        <button type="submit" disabled={busy || !email.trim()} className="rounded-xl bg-accent px-4 text-sm font-semibold text-white disabled:opacity-50">
+          {busy ? "…" : "Send"}
+        </button>
+      </div>
+      {error && <p className="text-red-600">{error}</p>}
+    </form>
   );
 }

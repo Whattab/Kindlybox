@@ -3,7 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { isAdminEmail } from "@/utils/admin";
 import { extrasEnabled } from "@/lib/extras";
 import { redirect } from "next/navigation";
-import { LogOut, Home as HomeIcon, Calendar, Gift, User, Boxes, Users, ShoppingBag, Music, Sparkles, Radar, FileText, Store, BookOpen, ShoppingCart } from "lucide-react";
+import { LogOut, Home as HomeIcon, Calendar, Gift, User, Boxes, Users, ShoppingBag, Music, Sparkles, Radar, FileText, Store, BookOpen, ShoppingCart, HeartHandshake } from "lucide-react";
 
 export default async function DashboardLayout({
   children,
@@ -22,6 +22,7 @@ export default async function DashboardLayout({
     { label: "Find a Gift", href: "/quiz", icon: Sparkles },
     { label: "Occasions", href: "/dashboard/occasions", icon: Calendar },
     { label: "Gift History", href: "/dashboard/gifts", icon: Gift },
+    { label: "Group Gifts", href: "/dashboard/group-gifts", icon: HeartHandshake },
     ...(extrasEnabled() ? [{ label: "My Orders", href: "/dashboard/my-orders", icon: Music }] : []),
     // Admin-only — the pages themselves also enforce this via requireAdmin().
     ...(isAdminEmail(user.email)
