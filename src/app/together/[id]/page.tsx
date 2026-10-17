@@ -122,11 +122,16 @@ export default async function GroupPage({
               <div>
                 <p className="text-sm font-semibold text-primary mb-2">Send your share to {group.organiser_name}:</p>
                 <div className="flex flex-wrap gap-2">
-                  {pay.map((l) => (
+                  {pay.map((l) => l.href ? (
                     <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer"
                       className="rounded-full border border-primary/15 bg-white px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5">
                       {l.label} · {l.handle}
                     </a>
+                  ) : (
+                    // PayPal by email has no pay link — friends copy it into their PayPal app.
+                    <span key={l.label} className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-white py-1.5 pl-4 pr-1.5 text-sm font-semibold text-primary">
+                      {l.label} · {l.handle} <CopyText text={l.handle} />
+                    </span>
                   ))}
                 </div>
               </div>

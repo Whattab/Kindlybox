@@ -60,9 +60,9 @@ export async function createGroup(input: {
   const venmo = input.venmo?.trim() ? venmoHandle(input.venmo) : null;
   const paypal = input.paypal?.trim() ? paypalHandle(input.paypal) : null;
   const cashapp = input.cashapp?.trim() ? cashappHandle(input.cashapp) : null;
-  if (input.venmo?.trim() && !venmo) return { ok: false, error: "That Venmo username doesn't look right." };
-  if (input.paypal?.trim() && !paypal) return { ok: false, error: "That PayPal.me name doesn't look right." };
-  if (input.cashapp?.trim() && !cashapp) return { ok: false, error: "That Cash App $cashtag doesn't look right." };
+  if (input.venmo?.trim() && !venmo) return { ok: false, error: "That Venmo username doesn't look right. It's on your Venmo profile, e.g. @Jess-Smith-7." };
+  if (input.paypal?.trim() && !paypal) return { ok: false, error: "For PayPal, enter the email you use for PayPal, or your PayPal.me name (letters and numbers only, e.g. JessSmith7)." };
+  if (input.cashapp?.trim() && !cashapp) return { ok: false, error: "That Cash App $cashtag doesn't look right. It's on your Cash App profile, e.g. $JessS7." };
   if (!venmo && !paypal && !cashapp) return { ok: false, error: "Add at least one way for friends to pay you back." };
 
   const db = createServiceClient();

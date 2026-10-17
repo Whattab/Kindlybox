@@ -8,11 +8,23 @@ describe("handles", () => {
   it("accepts the usual spellings", () => {
     expect(venmoHandle("@Jane-Doe")).toBe("Jane-Doe");
     expect(venmoHandle("https://venmo.com/u/jane_d")).toBe("jane_d");
-    expect(paypalHandle("paypal.me/JaneDoe")).toBeNull(); // needs https:// or bare
-    expect(paypalHandle("https://paypal.me/JaneDoe")).toBe("JaneDoe");
-    expect(paypalHandle("JaneDoe")).toBe("JaneDoe");
+    expect(venmoHandle("venmo.com/u/jane_d")).toBe("jane_d");
+    for (const s of ["JaneDoe", "@JaneDoe", "paypal.me/JaneDoe", "www.paypal.me/JaneDoe", "https://paypal.me/JaneDoe",
+      "https://www.paypal.me/JaneDoe/", "paypal.com/paypalme/JaneDoe", "https://www.paypal.com/us/paypalme/JaneDoe?x=1"]) {
+      expect(paypalHandle(s), s).toBe("JaneDoe");
+    }
     expect(cashappHandle("$jane")).toBe("jane");
     expect(cashappHandle("https://cash.app/$jane")).toBe("jane");
+    expect(cashappHandle("cash.app/$jane")).toBe("jane");
+  });
+  it("accepts a PayPal email (shown without a link)", () => {
+    expect(paypalHandle("Jane.Doe@Gmail.com ")).toBe("jane.doe@gmail.com");
+    expect(payLinks({ pay_paypal: "jane.doe@gmail.com" }, 20)).toEqual([{ label: "PayPal", handle: "jane.doe@gmail.com", href: null }]);
+  });
+  it("refuses an app name typed into the wrong box", () => {
+    expect(paypalHandle("Zelle")).toBeNull();
+    expect(venmoHandle("venmo")).toBeNull();
+    expect(cashappHandle("Zelle")).toBeNull();
   });
   it("rejects anything that could break out of the link", () => {
     expect(venmoHandle("jane/../../evil")).toBeNull();

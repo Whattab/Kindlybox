@@ -47,7 +47,7 @@ export function CreateGroupForm({ sessionId }: { sessionId: string }) {
         <p className="text-xs text-gray-500 mb-2">Add at least one. Friends will see these on the group page.</p>
         <div className="space-y-2">
           <input value={f.venmo} onChange={set("venmo")} maxLength={60} className={inputClass} placeholder="Venmo username, e.g. @jess-smith" />
-          <input value={f.paypal} onChange={set("paypal")} maxLength={60} className={inputClass} placeholder="PayPal.me name, e.g. JessSmith" />
+          <input value={f.paypal} onChange={set("paypal")} maxLength={60} className={inputClass} placeholder="PayPal email or PayPal.me name" />
           <input value={f.cashapp} onChange={set("cashapp")} maxLength={60} className={inputClass} placeholder="Cash App $cashtag, e.g. $jess" />
         </div>
       </div>
