@@ -15,6 +15,8 @@ import { DigitalGiftCallout } from "@/components/DigitalGiftCallout";
 import { suggestDigitalExtra } from "@/lib/digital-suggest";
 import { extrasEnabled } from "@/lib/extras";
 import { isAmazonItem, AMAZON_PRICE_PLACEHOLDER } from "@/lib/amazon-display";
+import { sameKey } from "@/lib/group-gift";
+import { organiserKeysInBrowser } from "@/app/together/viewer";
 
 // Step 7: what a refined page says it's showing, and the "couldn't refine" notices.
 const REFINED_LABEL: Record<string, string> = {
@@ -60,6 +62,15 @@ export default async function ResultsPage({
   if (!suggestions || suggestions.length === 0) {
     return notFound();
   }
+
+  // Already organising a group for these picks (this account, or this
+  // browser's organiser key)? Reopen it instead of starting a duplicate.
+  const browserKeys = organiserKeysInBrowser();
+  const { data: sessionGroups } = await db
+    .from("group_gifts").select("id, manage_key, organiser_user_id")
+    .eq("session_id", session.id).order("created_at", { ascending: false });
+  const myGroup = (sessionGroups || []).find((g) =>
+    (user && g.organiser_user_id === user.id) || sameKey(g.manage_key, browserKeys[g.id]));
 
   // Generate share link
   const domain = process.env.NEXT_PUBLIC_APP_URL || "https://kindlybox.com";
@@ -128,11 +139,11 @@ export default async function ResultsPage({
             </Link>
             <ShareButtons shareLink={shareLink} />
             <Link
-              href={`/together/new?s=${session.id}`}
+              href={myGroup ? `/together/${myGroup.id}` : `/together/new?s=${session.id}`}
               className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-accent transition-colors bg-white px-4 py-2 rounded-full shadow-sm border border-gray-200"
             >
               <Users className="w-4 h-4" />
-              Gift together
+              {myGroup ? "Open your group" : "Gift together"}
             </Link>
           </div>
           {/* v2 quiz asks for the email here, after the gifts (Step 6c). */}
