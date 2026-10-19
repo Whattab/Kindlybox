@@ -11,7 +11,7 @@ import { isAmazonItem, AMAZON_PRICE_PLACEHOLDER } from "@/lib/amazon-display";
 import { payLinks, sameKey, splitShare, tallyVotes } from "@/lib/group-gift";
 import { viewerFor } from "../viewer";
 import {
-  ChooseGift, CopyText, EmailLinkForm, InviteButton, JoinCard, RemoveMemberButton, UnlockButton, VoteButton,
+  ChooseGift, CopyText, DeleteGroupButton, EmailLinkForm, InviteButton, JoinCard, RemoveMemberButton, UnlockButton, VoteButton,
 } from "./GroupControls";
 
 export const dynamic = "force-dynamic";
@@ -231,6 +231,11 @@ export default async function GroupPage({
             ))}
           </div>
         </div>
+
+        {orgKey && (
+          <DeleteGroupButton groupId={group.id} orgKey={orgKey}
+            afterHref={user ? "/dashboard/group-gifts" : `/results/${group.session_id}`} />
+        )}
 
         <p className="text-center text-xs text-gray-400">
           KindlyBox doesn&apos;t collect or hold any money. Payments go straight to the organiser.

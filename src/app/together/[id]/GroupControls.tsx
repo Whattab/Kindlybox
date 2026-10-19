@@ -5,8 +5,8 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Copy, Loader2, Share2, X } from "lucide-react";
-import { castVote, emailOrganiserLink, joinGroup, leaveGroup, lockInGift, removeMember, unlockGift, type GroupResult } from "../actions";
+import { Check, Copy, Loader2, Share2, Trash2, X } from "lucide-react";
+import { castVote, deleteGroup, emailOrganiserLink, joinGroup, leaveGroup, lockInGift, removeMember, unlockGift, type GroupResult } from "../actions";
 import { inputClass } from "../new/CreateGroupForm";
 
 function useAction() {
@@ -191,5 +191,33 @@ export function EmailLinkForm({ groupId, orgKey }: { groupId: string; orgKey: st
       </div>
       {error && <p className="text-red-600">{error}</p>}
     </form>
+  );
+}
+
+export function DeleteGroupButton({ groupId, orgKey, afterHref }: { groupId: string; orgKey: string; afterHref: string }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const remove = async () => {
+    if (busy || !window.confirm("Delete this group for everyone? Friends' votes are removed and the invite link stops working. This can't be undone.")) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await deleteGroup(groupId, orgKey);
+      if (res.ok) return router.push(afterHref);
+      setError(res.error);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    }
+    setBusy(false);
+  };
+  return (
+    <div className="text-center">
+      <button type="button" onClick={remove} disabled={busy}
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-red-600 hover:underline disabled:opacity-50">
+        <Trash2 className="w-4 h-4" /> {busy ? "Deleting…" : "Delete this group"}
+      </button>
+      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+    </div>
   );
 }
