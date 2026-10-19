@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import type { Metadata } from "next";
-import { ArrowRight, Users } from "lucide-react";
+import { ArrowRight, ExternalLink, Users } from "lucide-react";
 import { createServiceClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
 import { GiftImage } from "@/components/GiftImage";
@@ -68,7 +68,7 @@ export default async function GroupPage({
       : `$${price_min}${price_max && price_max !== price_min ? ` – $${price_max}` : ""}`;
     // Amazon prices are never pre-filled (Associates rule); others start at the top of the range.
     const defaultTotal = isAmazon ? "" : String(price_max || price_min || "");
-    return [{ id: s.id as string, gift: n.gift, priceLabel, defaultTotal }];
+    return [{ id: s.id as string, gift: n.gift, priceLabel, defaultTotal, isAmazon }];
   });
   const votes = tallyVotes(members);
   const standing = voteStanding(votes, picks.map((p) => p.id));
@@ -215,7 +215,15 @@ export default async function GroupPage({
                       </span>
                     )}
                     <h3 className="font-serif text-lg font-bold text-primary leading-tight">{p.gift.name}</h3>
-                    <p className="text-sm text-gray-600 mt-1">{p.priceLabel}</p>
+                    {/* Everyone can look at the gift before voting — through the tracked
+                        /go/s link, so a purchase still earns the commission. */}
+                    <p className="text-sm text-gray-600 mt-1">
+                      {!p.isAmazon && <>{p.priceLabel} · </>}
+                      <a href={`/go/s/${p.id}`} target="_blank" rel="sponsored nofollow noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-medium text-accent underline underline-offset-2 hover:text-accent/80">
+                        {p.isAmazon ? p.priceLabel : "View gift"} <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </p>
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
