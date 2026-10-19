@@ -91,3 +91,21 @@ export function sameKey(a: string | null | undefined, b: string | null | undefin
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
 }
+
+/**
+ * Which picks lead the vote. `tied` when two or more share the top count.
+ * No votes yet → no leaders.
+ */
+export function voteStanding(votes: Record<string, number>, ids: string[]): { leaders: string[]; tied: boolean } {
+  const max = Math.max(0, ...ids.map((id) => votes[id] || 0));
+  if (max === 0) return { leaders: [], tied: false };
+  const leaders = ids.filter((id) => (votes[id] || 0) === max);
+  return { leaders, tied: leaders.length > 1 };
+}
+
+/** Most votes first; equal counts keep their original (quiz rank) order. */
+export function byVotes<T extends { id: string }>(items: T[], votes: Record<string, number>): T[] {
+  return items.map((it, i) => ({ it, i }))
+    .sort((a, b) => (votes[b.it.id] || 0) - (votes[a.it.id] || 0) || a.i - b.i)
+    .map((x) => x.it);
+}
