@@ -224,3 +224,23 @@ export async function emailOrganiserLink(groupId: string, email: string, key?: s
   await db.from("group_gifts").update({ organiser_email: to, link_emails_sent: (g.link_emails_sent ?? 0) + 1 }).eq("id", group.id);
   return { ok: true };
 }
+
+// ── Organiser: delete the group ──────────────────────────────────────────
+// Removes the group and everyone's votes (members cascade). The invite link
+// stops working for everyone.
+export async function deleteGroup(groupId: string, key?: string | null): Promise<GroupResult> {
+  const db = createServiceClient();
+  const group = await loadGroup(db, groupId);
+  if (!group) return { ok: true }; // already gone
+  if (!isOrganiser(group.id, group.manage_key, key)) return { ok: false, error: "Only the organiser can delete this group." };
+  const { error } = await db.from("group_gifts").delete().eq("id", group.id);
+  if (error) {
+    console.error("deleteGroup", error);
+    return { ok: false, error: "Couldn't delete the group. Please try again." };
+  }
+  for (const name of [keyCookie(group.id), memberCookie(group.id)]) {
+    cookies().delete({ name, path: COOKIE_PATH });
+    cookies().delete({ name, path: "/together" }); // first groups' cookies
+  }
+  return { ok: true };
+}
