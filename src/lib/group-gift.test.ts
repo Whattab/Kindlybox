@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   cleanName, venmoHandle, paypalHandle, cashappHandle, payLinks,
-  parseAmount, splitShare, tallyVotes, sameKey,
+  parseAmount, splitShare, tallyVotes, sameKey, voteStanding, byVotes,
 } from "./group-gift";
 
 describe("handles", () => {
@@ -76,5 +76,22 @@ describe("misc", () => {
     expect(sameKey("abc", "abc")).toBe(true);
     expect(sameKey("abc", "abd")).toBe(false);
     expect(sameKey(null, "abc")).toBe(false);
+  });
+});
+
+describe("vote standing", () => {
+  const ids = ["a", "b", "c"];
+  it("no votes → no leader", () => {
+    expect(voteStanding({}, ids)).toEqual({ leaders: [], tied: false });
+  });
+  it("one clear leader", () => {
+    expect(voteStanding({ a: 1, b: 3 }, ids)).toEqual({ leaders: ["b"], tied: false });
+  });
+  it("a tie", () => {
+    expect(voteStanding({ a: 2, c: 2, b: 1 }, ids)).toEqual({ leaders: ["a", "c"], tied: true });
+  });
+  it("sorts most votes first, keeping quiz order on equal counts", () => {
+    expect(byVotes(ids.map((id) => ({ id })), { c: 2, b: 2 }).map((x) => x.id)).toEqual(["b", "c", "a"]);
+    expect(byVotes(ids.map((id) => ({ id })), {}).map((x) => x.id)).toEqual(ids);
   });
 });

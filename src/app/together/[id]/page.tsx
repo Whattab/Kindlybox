@@ -8,7 +8,7 @@ import { createClient } from "@/utils/supabase/server";
 import { GiftImage } from "@/components/GiftImage";
 import { normalizeSuggestion, SUGGESTION_SELECT } from "@/lib/quiz-email";
 import { isAmazonItem, AMAZON_PRICE_PLACEHOLDER } from "@/lib/amazon-display";
-import { payLinks, sameKey, splitShare, tallyVotes } from "@/lib/group-gift";
+import { byVotes, payLinks, sameKey, splitShare, tallyVotes, voteStanding } from "@/lib/group-gift";
 import { viewerFor } from "../viewer";
 import {
   ChooseGift, CopyText, DeleteGroupButton, EmailLinkForm, InviteButton, JoinCard, RemoveMemberButton, UnlockButton, VoteButton,
@@ -71,6 +71,7 @@ export default async function GroupPage({
     return [{ id: s.id as string, gift: n.gift, priceLabel, defaultTotal }];
   });
   const votes = tallyVotes(members);
+  const standing = voteStanding(votes, picks.map((p) => p.id));
   const chosen = picks.find((p) => p.id === group.chosen_suggestion_id) || null;
   const total = group.total_amount != null ? Number(group.total_amount) : null;
   const share = chosen ? splitShare(total, members.length) : null;
@@ -184,13 +185,21 @@ export default async function GroupPage({
           </p>
         )}
 
-        <JoinCard groupId={group.id} picks={picks.map((p) => ({ id: p.id, name: p.gift.name }))}
+        {/* The organiser opening their own link sees organiser controls, not the friend view. */}
+        {orgKey && (
+          <p className="rounded-xl bg-gray-100 px-4 py-2.5 text-center text-xs text-gray-600">
+            You&apos;re viewing as the organiser ({group.organiser_name}). To see what friends see, open the invite link in a private window or on another device.
+          </p>
+        )}
+
+        <JoinCard groupId={group.id} picks={chosen ? [] : picks.map((p) => ({ id: p.id, name: p.gift.name }))}
           me={me ? { name: me.name, isOrganiser: me.is_organiser } : null} />
 
         {/* The picks, with votes */}
         <div className="space-y-4">
-          {picks.map((p) => {
+          {byVotes(picks, votes).map((p) => {
             const voters = members.filter((m) => m.vote_suggestion_id === p.id).map((m) => m.name);
+            const leading = standing.leaders.includes(p.id);
             return (
               <div key={p.id} className={`rounded-3xl p-5 border shadow-sm ${chosen?.id === p.id ? "bg-white border-accent/40" : "bg-[#FBF6EE] border-primary/5"}`}>
                 <div className="flex items-start gap-4">
@@ -198,6 +207,13 @@ export default async function GroupPage({
                     <GiftImage src={p.gift.image_url} alt={p.gift.name} />
                   </div>
                   <div className="flex-1 min-w-0">
+                    {chosen?.id === p.id ? (
+                      <span className="mb-1 inline-block rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-white">Chosen</span>
+                    ) : leading && (
+                      <span className="mb-1 inline-block rounded-full bg-accent/15 px-2.5 py-0.5 text-xs font-semibold text-accent">
+                        {standing.tied ? "Tied for most votes" : "Most votes"}
+                      </span>
+                    )}
                     <h3 className="font-serif text-lg font-bold text-primary leading-tight">{p.gift.name}</h3>
                     <p className="text-sm text-gray-600 mt-1">{p.priceLabel}</p>
                   </div>
@@ -207,12 +223,16 @@ export default async function GroupPage({
                     <strong className="text-primary">{votes[p.id] || 0}</strong> {(votes[p.id] || 0) === 1 ? "vote" : "votes"}
                     {voters.length > 0 && <span className="text-gray-400"> · {voters.join(", ")}</span>}
                   </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {me && <VoteButton groupId={group.id} suggestionId={p.id} mine={me.vote_suggestion_id === p.id} orgKey={orgKey} />}
-                    {orgKey && chosen?.id !== p.id && (
-                      <ChooseGift groupId={group.id} suggestionId={p.id} orgKey={orgKey} defaultTotal={p.defaultTotal} />
-                    )}
-                  </div>
+                  {/* Once the gift is chosen, voting is closed (the organiser can reopen it
+                      with "Change the pick or total"). */}
+                  {chosen ? (
+                    chosen.id === p.id && <p className="text-sm font-semibold text-accent">Voting closed · {group.organiser_name} chose this gift</p>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {me && <VoteButton groupId={group.id} suggestionId={p.id} mine={me.vote_suggestion_id === p.id} orgKey={orgKey} />}
+                      {orgKey && <ChooseGift groupId={group.id} suggestionId={p.id} orgKey={orgKey} defaultTotal={p.defaultTotal} />}
+                    </div>
+                  )}
                 </div>
               </div>
             );

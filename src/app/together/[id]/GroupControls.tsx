@@ -96,10 +96,13 @@ export function JoinCard({ groupId, picks, me }: {
     <form onSubmit={submit} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
       <p className="font-semibold text-primary">Count me in</p>
       <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} required className={inputClass} placeholder="Your name" autoComplete="given-name" />
-      <select value={vote} onChange={(e) => setVote(e.target.value)} className={inputClass}>
-        <option value="">My favourite gift… (optional)</option>
-        {picks.map((p) => <option key={p.id} value={p.id}>{p.name.length > 70 ? `${p.name.slice(0, 70)}…` : p.name}</option>)}
-      </select>
+      {/* No picks passed once the organiser has chosen — voting is closed. */}
+      {picks.length > 0 && (
+        <select value={vote} onChange={(e) => setVote(e.target.value)} className={inputClass}>
+          <option value="">My favourite gift… (optional)</option>
+          {picks.map((p) => <option key={p.id} value={p.id}>{p.name.length > 70 ? `${p.name.slice(0, 70)}…` : p.name}</option>)}
+        </select>
+      )}
       {error && <p className="text-sm font-medium text-red-600">{error}</p>}
       <button type="submit" disabled={busy || !name.trim()}
         className="w-full bg-accent text-white px-6 py-3 rounded-xl font-semibold hover:bg-accent/90 disabled:opacity-50 shadow-md flex items-center justify-center gap-2">

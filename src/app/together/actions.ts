@@ -43,7 +43,7 @@ async function suggestionInSession(db: ReturnType<typeof createServiceClient>, s
 
 async function loadGroup(db: ReturnType<typeof createServiceClient>, groupId: string) {
   if (!UUID.test(groupId || "")) return null;
-  const { data } = await db.from("group_gifts").select("id, session_id, manage_key").eq("id", groupId).maybeSingle();
+  const { data } = await db.from("group_gifts").select("id, session_id, manage_key, chosen_suggestion_id").eq("id", groupId).maybeSingle();
   return data;
 }
 
@@ -117,12 +117,13 @@ export async function joinGroup(groupId: string, rawName: string, voteId: string
   const db = createServiceClient();
   const group = await loadGroup(db, groupId);
   if (!group) return { ok: false, error: "This group no longer exists." };
+  if (group.chosen_suggestion_id) voteId = null; // voting closed — still welcome to chip in
   if (voteId && !(await suggestionInSession(db, group.session_id, voteId))) voteId = null;
 
   // Already in (same browser)? Update rather than add a duplicate.
   const { memberId } = viewerFor(group.id);
   if (memberId && UUID.test(memberId)) {
-    const { data: existing } = await db.from("group_gift_members").update({ name, vote_suggestion_id: voteId })
+    const { data: existing } = await db.from("group_gift_members").update(group.chosen_suggestion_id ? { name } : { name, vote_suggestion_id: voteId })
       .eq("id", memberId).eq("group_id", group.id).select("id").maybeSingle();
     if (existing) return { ok: true };
   }
@@ -144,6 +145,7 @@ export async function castVote(groupId: string, voteId: string, key?: string | n
   const db = createServiceClient();
   const group = await loadGroup(db, groupId);
   if (!group) return { ok: false, error: "This group no longer exists." };
+  if (group.chosen_suggestion_id) return { ok: false, error: "Voting is closed — the organiser has chosen the gift." };
   const memberId = await myMemberId(db, group, key);
   if (!memberId) return { ok: false, error: "Join the group first." };
   if (!(await suggestionInSession(db, group.session_id, voteId))) return { ok: false, error: "That gift isn't in this group." };
