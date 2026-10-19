@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { SubmitButton } from "@/components/SubmitButton";
+import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 
 export default function SignUp({
   searchParams,
@@ -120,6 +121,8 @@ export default function SignUp({
             </p>
           )}
         </form>
+
+        <GoogleAuthButton from="signup" label="Sign up with Google" />
 
         <p className="mt-8 text-center text-sm text-gray-600">
           Already have an account?{" "}
