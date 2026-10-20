@@ -18,15 +18,17 @@ export async function POST(request: Request) {
   try {
     const supabase = createClient();
     const body = await request.json();
-    const { firstName, email } = body;
 
-    // Branching quiz (Step 6): the browser sends its raw v2 state; the SERVER
-    // validates and maps it to the recommender's answers (never trust a
-    // client-side mapping). v1 posts its answers directly, as before.
-    const isV2 = body.quizVersion === "v2";
-    const v2State = isV2 ? parseV2State(body.v2) : null;
-    const v2Answers: QuizAnswers | null = v2State ? toQuizAnswers(v2State) : null;
-    const { recipient, occasion, interests, budget, ageGroup, gender, freeText, recipientName } = v2Answers ?? body;
+    // The browser sends its raw quiz state; the SERVER validates and maps it to
+    // the recommender's answers (never trust a client-side mapping). The old
+    // linear quiz (v1) was retired in Step 6d — a page left open from before
+    // that is asked to refresh rather than half-working.
+    const v2State = body?.quizVersion === "v2" ? parseV2State(body.v2) : null;
+    if (!v2State) {
+      return NextResponse.json({ error: "This quiz page is out of date — please refresh the page and try again." }, { status: 400 });
+    }
+    const v2Answers: QuizAnswers = toQuizAnswers(v2State);
+    const { recipient, occasion, interests, budget, ageGroup, gender, freeText, recipientName } = v2Answers;
 
     // 1. Authenticate (optional for quiz)
     const { data: { user } } = await supabase.auth.getUser();
@@ -34,31 +36,32 @@ export async function POST(request: Request) {
     // 2. Interpret the free-text note into APPROVED tags (fail-soft) and blend
     // the interpreted interests into the quiz interests, so free-text actually
     // influences candidate selection + scoring.
-    const interpreted = await interpretFreeText(freeText, supabaseAdmin);
+    const interpreted = await interpretFreeText(freeText || "", supabaseAdmin);
     const effectiveInterests = Array.from(new Set([...(interests || []), ...interpreted.interests]));
     // v2 adds the shopper's avoid chips, gift feel, level and relationship rules.
-    const avoidFlags = Array.from(new Set([...(v2Answers?.avoidFlags || []), ...interpreted.avoid_flags]));
+    const avoidFlags = Array.from(new Set([...(v2Answers.avoidFlags || []), ...interpreted.avoid_flags]));
 
     // 3. Recommend + save the session and picks (shared with Step 7 refinements).
-    const personalizationName = recipientName?.trim() || (user ? user.user_metadata?.first_name : firstName);
+    const personalizationName = recipientName?.trim() || (user ? user.user_metadata?.first_name : undefined);
     const run = await runRecommendation({
       db: supabaseAdmin,
       answers: {
         recipient, occasion, interests: effectiveInterests, budget, ageGroup, gender, freeText, avoidFlags,
-        giftFeel: v2Answers?.giftFeel,
-        experienceLevel: v2Answers?.experienceLevel,
-        excludeIntimate: v2Answers?.excludeIntimate,
-        excludeLuxe: v2Answers?.excludeLuxe,
+        giftFeel: v2Answers.giftFeel,
+        experienceLevel: v2Answers.experienceLevel,
+        excludeIntimate: v2Answers.excludeIntimate,
+        excludeLuxe: v2Answers.excludeLuxe,
       },
-      // Mapped answers stay top-level (the results page reads them); v2 also
-      // keeps its raw state + version so old and new quizzes can be compared.
+      // Mapped answers stay top-level (the results page reads them), plus the
+      // raw quiz state + version for analysis.
       storedAnswers: {
         recipient, occasion, interests, budget, ageGroup, gender, freeText, recipientName, interpreted,
-        ...(v2State ? { quizVersion: "v2", v2: v2State, avoidFlags, giftFeel: v2Answers?.giftFeel } : {}),
+        quizVersion: "v2", v2: v2State, avoidFlags, giftFeel: v2Answers.giftFeel,
       },
       userId: user?.id || null,
-      emailCaptured: user ? user.email ?? null : email ?? null,
-      firstNameCaptured: user ? user.user_metadata?.first_name ?? null : firstName ?? null,
+      // Signed-out shoppers opt in to email on the results page (Step 6c).
+      emailCaptured: user ? user.email ?? null : null,
+      firstNameCaptured: user ? user.user_metadata?.first_name ?? null : null,
       personalize: {
         answers: { recipient, occasion, interests, budget, ageGroup, gender, freeText, recipientName: personalizationName },
         recipientName,
@@ -72,15 +75,14 @@ export async function POST(request: Request) {
     }
     const { sessionId, recommendations } = run;
 
-    // 4. Send the email via Resend
-    const recipientEmail = user ? user.email : email;
-
-    // (v2 posts no email — the shopper opts in on the results page, Step 6c.)
+    // 4. Signed-in shoppers get their picks by email right away; everyone else
+    // can opt in on the results page ("Email me these picks", Step 6c).
+    const recipientEmail = user?.email;
     if (recipientEmail) {
       // Fail-soft: we don't fail the whole request just because email failed.
       // Greeting (owner rule): the shopper's own first name if we have it,
       // otherwise the gift recipient's name, otherwise no name.
-      const greetName = (user ? user.user_metadata?.first_name : firstName)?.trim() || recipientName?.trim() || undefined;
+      const greetName = user?.user_metadata?.first_name?.trim() || recipientName?.trim() || undefined;
       await sendResultsEmail({ to: recipientEmail, firstName: greetName, recommendations, sessionId });
     } else {
       console.log("[email] Skipped — no recipient email available");

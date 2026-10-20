@@ -202,6 +202,4 @@ AWIN_API_KEY, AWIN_PUBLISHER_ID                                   # Awin feeds
 CJ_PERSONAL_ACCESS_TOKEN, CJ_PUBLISHER_ID, CJ_WEBSITE_ID          # CJ
 RAKUTEN_CLIENT_ID, RAKUTEN_CLIENT_SECRET, RAKUTEN_SID             # Rakuten
 AMAZON_ASSOCIATE_TAG           # e.g. kindlybox0c-20 (tagged quiz clicks)
-QUIZ_V2_PERCENT                # 0–100 share of new visitors on the branching quiz (100 since 2026-10-13)
-QUIZ_V2_OFF                    # set to 1 to force the old quiz for everyone (emergency stop)
 ```

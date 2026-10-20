@@ -354,3 +354,9 @@ The quiz submit awaits 3 Gemini calls and an email send before responding. Both 
 - **Results page** shows **Open your group** instead of creating a duplicate. Organiser cookies moved to path `/` (old `/together` cookies still work on group pages).
 - **PayPal fix (same day, shipped):** the PayPal box accepts email, paypal.me/x with or without https/www, paypal.com/paypalme/x; email shown with Copy (no pay link); app names like "Zelle" refused.
 - **Verified:** Edge 390×844 against prod with a temporary account (deleted after): signed-out create → save box → email sent (Resend sandbox) → results "Open your group" → sign in → dashboard lists it; fresh device sign-in → dashboard → full organiser controls, vote, choose + $60 total, Buy visible; stranger with invite link has no organiser controls. 144 tests; build passes.
+
+### Step 6d — ✅ old quiz (v1) retired (2026-10-20, branch `step-6d`)
+- **The branching quiz is the only quiz.** Removed `QuizFlow.tsx` (v1), the version switch (`quiz-v2/version.ts` + test, `QuizVersionCookie`, `?quiz=v1|v2`, `kb_quiz` cookie). `QUIZ_V2_PERCENT` / `QUIZ_V2_OFF` are no longer read — safe to delete on Vercel (Shared tab).
+- **Submit route** accepts only the v2 payload; anything else gets 400 "This quiz page is out of date — please refresh". Signed-out shoppers' email is captured only via "Email me these picks"; signed-in shoppers still get their picks emailed at submit.
+- **Kept working:** old-style links (`/quiz?recipient=dad&occasion=birthday&interests=gardening`) prefill the quiz via `prefillFromParams`; results pages for old v1 sessions still render (checked two from 2026-10-10/11).
+- **Verified:** Edge 390×844 locally against prod — prefilled link → 7 screens → results; `?quiz=v1` shows the new quiz; old-style POST → 400 with the refresh message; test session deleted. 142 tests (6 switch tests removed with the switch); build passes. **Step 6 complete.**

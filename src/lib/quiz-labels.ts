@@ -13,7 +13,7 @@ export function rankLabel(index: number): string {
 
 // Warm phrasings for the structured interests, shown as chips on the results
 // header. Honest by construction — the buyer actually selected these; we're
-// only wording them nicely. Keys match the interest ids in QuizFlow.
+// only wording them nicely. Keys match the interest values in gift-vocab.ts.
 const INTEREST_CHIP: Record<string, string> = {
   "tech & gadgets": "Loves gadgets",
   "fashion & accessories": "Into fashion",
