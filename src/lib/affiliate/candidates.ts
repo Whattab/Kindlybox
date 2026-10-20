@@ -50,6 +50,7 @@ function toGift(p: ProductRow): Gift {
     gift_type: p.gift_type || [],
     avoid_flags: p.avoid_flags || [],
     primary_interest: p.primary_interest || null,
+    merchant: p.merchant_name || null,
   };
   (g as any).__source = "product";
   (g as any).__productId = p.id;

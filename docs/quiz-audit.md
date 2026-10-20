@@ -366,3 +366,8 @@ The quiz submit awaits 3 Gemini calls and an email send before responding. Both 
 - **How:** new `everywhere: true` option in [merchant-exclusions.ts](src/lib/affiliate/merchant-exclusions.ts); hidden merchants are excluded in the candidate SQL (not only in JS) so Printerval's 2,482 fashion rows can't fill the per-query limits. Covers first picks, refinements and swap (all go through `loadProductCandidates`). Products stay in the DB / Products dashboard. Eligible pool 12,168 → 9,686.
 - **Verified:** 4 sample quizzes (incl. the owner's "SAM" test) — no Printerval, 3 picks each; test sessions deleted. 143 tests; build passes.
 - **Still open:** same-shop doubles (Flowers Fast ×2, PawFurEver ×2 in samples) → proposed "one gift per shop" rule; fashion now has few feed products.
+
+### One gift per shop (2026-10-20, branch `one-per-shop`)
+- **Owner rule:** results never show two gifts from the same shop. Feed products carry `merchant` (from `merchant_name`); `pickDiverse` keeps each shop's best match (pool is best-first). Curated gifts have no shop and are exempt (each hand-picked). The "Not quite" swap passes `excludeMerchants` = the kept picks' shops. `SUGGESTION_SELECT` now includes `products.merchant_name`.
+- **Before:** 15 of 51 sessions (14 days) showed 2+ picks from one shop (Flowers Fast, Giftcards.com, Printerval, PawFurEver).
+- **Verified:** re-ran the 42 non-refinement sessions from the last 14 days against live data — 0 same-shop doubles, all 42 still get 3 gifts. 146 tests (3 new); build passes.

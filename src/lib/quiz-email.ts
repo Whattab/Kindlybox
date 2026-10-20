@@ -24,7 +24,7 @@ export interface EmailPick {
 export const SUGGESTION_SELECT = `
   id, match_score, rank, personalized_reason, source, product_id,
   gifts (id, name, description, image_url, price_min, price_max, affiliate_url, affiliate_network),
-  products (id, title, description, image_url, price, affiliate_link)
+  products (id, title, description, image_url, price, affiliate_link, merchant_name)
 `;
 
 /**

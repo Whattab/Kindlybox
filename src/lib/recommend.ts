@@ -36,6 +36,9 @@ export interface Gift {
   gift_type?: string[] | null;
   avoid_flags?: string[] | null;
   primary_interest?: string | null;
+  /** Shop a feed product comes from. Results show at most one gift per shop;
+   *  curated gifts leave this empty — each was hand-picked, so they're exempt. */
+  merchant?: string | null;
 }
 
 export interface GiftScore {
@@ -305,6 +308,9 @@ export interface RecommendOptions {
   /** Only gifts priced strictly below this ("Cheaper"). */
   priceCeiling?: number;
   refinement?: Refinement;
+  /** Shops already on screen (a swap keeps the other picks) — never add a
+   *  second gift from one of these. */
+  excludeMerchants?: string[];
   /** Return nothing rather than fall back to gifts that don't match the
    *  answers (refinements: "nothing new" beats unrelated cheap filler). */
   strict?: boolean;
@@ -351,6 +357,11 @@ const VARIANT_WORDS = new Set([
  * word. Both collapse to one key. Falls back to the plain name if stripping
  * would leave nothing (e.g. a product literally named "Black").
  */
+/** Normalised shop name for the one-gift-per-shop rule ("" = no shop). */
+export function shopKey(merchant: string | null | undefined): string {
+  return (merchant || "").toLowerCase().trim();
+}
+
 export function variantKey(name: string): string {
   const base = (name || "").split(" - ")[0].trim().toLowerCase();
   const stripped = base
@@ -400,8 +411,10 @@ export function getRecommendations(
   // the shopper has already seen in this chain, and honour a price ceiling.
   const excludeIds = new Set(options.excludeIds || []);
   const excludeKeys = new Set(options.excludeNames || []);
-  const unseen = excludeIds.size === 0 && excludeKeys.size === 0 ? catalogue : catalogue.filter(
-    (gift) => !excludeIds.has(gift.id) && !excludeKeys.has(variantKey(gift.name || "")),
+  const excludeShops = new Set((options.excludeMerchants || []).map(shopKey).filter(Boolean));
+  const unseen = excludeIds.size === 0 && excludeKeys.size === 0 && excludeShops.size === 0 ? catalogue : catalogue.filter(
+    (gift) => !excludeIds.has(gift.id) && !excludeKeys.has(variantKey(gift.name || ""))
+      && !(gift.merchant && excludeShops.has(shopKey(gift.merchant))),
   );
   const underCeiling = options.priceCeiling == null ? unseen : unseen.filter((gift) => (gift.price_min ?? 0) < options.priceCeiling!);
   // "Last-minute ideas" / "An experience instead" only offer gifts that fit.
@@ -678,11 +691,17 @@ export function getRecommendations(
   const pickDiverse = (pool: GiftScore[]): GiftScore[] => {
     const deduped: GiftScore[] = [];
     const nameSeen = new Set<string>();
+    const shopSeen = new Set<string>();
     for (const s of pool) {
       // Variants are the same gift to a shopper — see variantKey.
       const key = variantKey(s.gift.name || "");
       if (key && nameSeen.has(key)) continue;
+      // One gift per shop (owner rule, 2026-10-20): the pool is best-first, so
+      // each shop keeps only its best match. Curated gifts have no shop.
+      const shop = shopKey(s.gift.merchant);
+      if (shop && shopSeen.has(shop)) continue;
       if (key) nameSeen.add(key);
+      if (shop) shopSeen.add(shop);
       deduped.push(s);
     }
     if (deduped.length <= limit) return deduped.slice(0, limit);

@@ -144,8 +144,12 @@ export async function swapOnePick(input: {
   const answers = answersFromSession(stored);
   const { data: gifts } = await db.from("gifts").select("*").eq("active", true);
   const catalogue = [...(gifts || []), ...(await loadProductCandidates(answers))];
+  // One gift per shop: the replacement can't come from a shop the kept picks use.
+  const keptShops = current.filter((x) => x.row.id !== suggestionId)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- joined row shape
+    .map((x) => (x.row as any).products?.merchant_name as string | undefined).filter((m): m is string => !!m);
   const pickOne = (strict: boolean) => getRecommendations(answers, catalogue, {
-    seed: Date.now(), limit: 1, excludeIds: shownIds, excludeNames: shownNames, strict,
+    seed: Date.now(), limit: 1, excludeIds: shownIds, excludeNames: shownNames, excludeMerchants: keptShops, strict,
   })[0];
   // Prefer a genuine match; only fall back to the best remaining gift if none.
   const replacement = pickOne(true) || pickOne(false);

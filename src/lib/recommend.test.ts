@@ -259,3 +259,35 @@ describe("strict needs a real interest tag", () => {
     expect(names(getRecommendations({ ...base, interests: ["coffee"] }, [hoodie, press], { seed: 1, limit: 3, strict: true }))).toEqual(["French Press"]);
   });
 });
+
+describe("one gift per shop (2026-10-20)", () => {
+  it("never shows two gifts from the same shop — keeps the shop's best match", () => {
+    const pool = [
+      g({ name: "Rose Bouquet", tags: ["gardening"], merchant: "Flowers Fast" }),
+      g({ name: "Tulip Bouquet", tags: ["gardening"], merchant: "Flowers Fast" }),
+      g({ name: "Lily Bouquet", tags: ["gardening"], merchant: "flowers fast " }), // same shop, messy name
+      g({ name: "Garden Kneeler", tags: ["gardening"], merchant: "Garden Co" }),
+      g({ name: "Pruning Shears", tags: ["gardening"] }), // curated: no shop
+    ];
+    const out = getRecommendations({ ...base, interests: ["gardening"] }, pool, { seed: 3, limit: 3 });
+    const shops = out.map((x) => (x.gift.merchant || "").toLowerCase().trim()).filter(Boolean);
+    expect(new Set(shops).size).toBe(shops.length);
+    expect(out).toHaveLength(3);
+  });
+  it("curated gifts (no shop) are exempt", () => {
+    const pool = [
+      g({ name: "Coffee Mug", tags: ["coffee"] }),
+      g({ name: "Coffee Grinder", tags: ["coffee"] }),
+      g({ name: "Coffee Scale", tags: ["coffee"] }),
+    ];
+    expect(getRecommendations({ ...base, interests: ["coffee"] }, pool, { seed: 1, limit: 3 })).toHaveLength(3);
+  });
+  it("a swap never adds a second gift from a shop already on screen", () => {
+    const pool = [
+      g({ name: "Rose Bouquet", tags: ["gardening"], merchant: "Flowers Fast" }),
+      g({ name: "Garden Kneeler", tags: ["gardening"], merchant: "Garden Co" }),
+    ];
+    const one = getRecommendations({ ...base, interests: ["gardening"] }, pool, { seed: 1, limit: 1, excludeMerchants: ["Flowers Fast"] });
+    expect(one.map((x) => x.gift.name)).toEqual(["Garden Kneeler"]);
+  });
+});
