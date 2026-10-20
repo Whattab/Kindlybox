@@ -7,12 +7,15 @@
 //
 // ─── HOW TO ADD A RULE (owner-editable) ────────────────────────────────────
 // Add a line to MERCHANT_EXCLUSIONS below. The key is the EXACT merchant name,
-// the value lists the occasions and/or interests to hide that merchant from.
+// the value lists the occasions and/or interests to hide that merchant from,
+// or `everywhere: true` to keep the merchant out of quiz results entirely
+// (its products stay in the database and on the Products dashboard).
 // After editing, the change goes live on the next deploy (commit + push to
 // master, or ask Claude to deploy).
 //
 //   "PawFurEver": { occasions: ["baby shower", "wedding"] },
 //   "Printerval":  { occasions: ["baby shower"], interests: ["jewelry"] },
+//   "SomeShop":    { everywhere: true },
 //
 // VALID MERCHANT NAMES (exact — copy from here):
 //   BOOKSAMILLION.COM · Black Canyon Home & Body · Lucasgift - US · Printerval
@@ -30,18 +33,28 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 interface ExclusionRule {
+  everywhere?: boolean;  // hide from every quiz, whatever the answers
   occasions?: string[];  // quiz occasion values (e.g. "baby shower")
   interests?: string[];  // quiz interest labels (e.g. "fashion & accessories")
 }
 
 // Keys are exact product.merchant_name values. Add your rules here:
 export const MERCHANT_EXCLUSIONS: Record<string, ExclusionRule> = {
-  Printerval: { occasions: ["baby shower"] },
+  // Hidden from all quizzes 2026-10-20 (owner decision): its Awin feed keeps
+  // listing products that 404 on printerval.com, the auto-tags are unreliable
+  // (anime hoodies tagged "outdoor"), and near-identical shirts crowd results.
+  Printerval: { everywhere: true },
   PawFurEver: { occasions: ["baby shower", "wedding"] },
   "Lucasgift - US": { occasions: ["sympathy"] },
 };
 
 const lc = (s: string | null | undefined) => (s || "").toLowerCase().trim();
+
+/** Merchants hidden from every quiz — excluded in the candidate SQL itself so
+ *  they can't use up the per-query row limit before the JS filter runs. */
+export function merchantsHiddenEverywhere(): string[] {
+  return Object.entries(MERCHANT_EXCLUSIONS).filter(([, r]) => r.everywhere).map(([m]) => m);
+}
 
 /** True when this merchant should be hidden for the given quiz answers. */
 export function isMerchantExcluded(
@@ -50,6 +63,7 @@ export function isMerchantExcluded(
 ): boolean {
   const rule = merchant ? MERCHANT_EXCLUSIONS[merchant] : undefined;
   if (!rule) return false;
+  if (rule.everywhere) return true;
   const occ = lc(answers.occasion);
   if (occ && rule.occasions?.some((o) => lc(o) === occ)) return true;
   const interests = (answers.interests || []).map(lc);

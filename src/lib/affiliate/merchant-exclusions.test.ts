@@ -1,13 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { isMerchantExcluded, MERCHANT_EXCLUSIONS } from "./merchant-exclusions";
+import { isMerchantExcluded, merchantsHiddenEverywhere, MERCHANT_EXCLUSIONS } from "./merchant-exclusions";
 
 describe("isMerchantExcluded", () => {
-  it("excludes Printerval for baby shower", () => {
-    expect(isMerchantExcluded("Printerval", { occasion: "baby shower" })).toBe(true);
-    expect(isMerchantExcluded("Printerval", { occasion: "Baby Shower" })).toBe(true); // case-insensitive
+  it("excludes PawFurEver for baby shower", () => {
+    expect(isMerchantExcluded("PawFurEver", { occasion: "baby shower" })).toBe(true);
+    expect(isMerchantExcluded("PawFurEver", { occasion: "Baby Shower" })).toBe(true); // case-insensitive
   });
-  it("keeps Printerval for other occasions", () => {
-    expect(isMerchantExcluded("Printerval", { occasion: "birthday" })).toBe(false);
+  it("keeps PawFurEver for other occasions", () => {
+    expect(isMerchantExcluded("PawFurEver", { occasion: "birthday" })).toBe(false);
+  });
+  it("hides Printerval from every quiz", () => {
+    expect(isMerchantExcluded("Printerval", { occasion: "birthday", interests: ["fashion & accessories"] })).toBe(true);
+    expect(isMerchantExcluded("Printerval", {})).toBe(true);
+    expect(merchantsHiddenEverywhere()).toEqual(["Printerval"]);
   });
   it("never excludes a merchant with no rule", () => {
     expect(isMerchantExcluded("Flowers Fast", { occasion: "baby shower" })).toBe(false);

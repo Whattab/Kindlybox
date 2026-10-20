@@ -360,3 +360,9 @@ The quiz submit awaits 3 Gemini calls and an email send before responding. Both 
 - **Submit route** accepts only the v2 payload; anything else gets 400 "This quiz page is out of date — please refresh". Signed-out shoppers' email is captured only via "Email me these picks"; signed-in shoppers still get their picks emailed at submit.
 - **Kept working:** old-style links (`/quiz?recipient=dad&occasion=birthday&interests=gardening`) prefill the quiz via `prefillFromParams`; results pages for old v1 sessions still render (checked two from 2026-10-10/11).
 - **Verified:** Edge 390×844 locally against prod — prefilled link → 7 screens → results; `?quiz=v1` shows the new quiz; old-style POST → 400 with the refresh message; test session deleted. 142 tests (6 switch tests removed with the switch); build passes. **Step 6 complete.**
+
+### Printerval hidden from all quizzes (2026-10-20, branch `hide-printerval`)
+- **Why (owner decision):** an emailed Printerval pick 404'd on printerval.com although the Awin feed still listed it in stock that morning; anime hoodies were auto-tagged "outdoor/ adventure"; 5 of 51 recent sessions showed 2+ near-identical Printerval shirts. Its site blocks automated checks, so dead links can't be detected from our side.
+- **How:** new `everywhere: true` option in [merchant-exclusions.ts](src/lib/affiliate/merchant-exclusions.ts); hidden merchants are excluded in the candidate SQL (not only in JS) so Printerval's 2,482 fashion rows can't fill the per-query limits. Covers first picks, refinements and swap (all go through `loadProductCandidates`). Products stay in the DB / Products dashboard. Eligible pool 12,168 → 9,686.
+- **Verified:** 4 sample quizzes (incl. the owner's "SAM" test) — no Printerval, 3 picks each; test sessions deleted. 143 tests; build passes.
+- **Still open:** same-shop doubles (Flowers Fast ×2, PawFurEver ×2 in samples) → proposed "one gift per shop" rule; fashion now has few feed products.
