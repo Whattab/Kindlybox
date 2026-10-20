@@ -9,7 +9,7 @@
 import { createServiceClient } from "@/utils/supabase/admin";
 import type { Gift, QuizAnswers } from "@/lib/recommend";
 import { isBlockedTitle } from "./blocklist";
-import { isMerchantExcluded } from "./merchant-exclusions";
+import { isMerchantExcluded, merchantsHiddenEverywhere } from "./merchant-exclusions";
 
 const BUDGET_BANDS: Record<string, [number, number]> = {
   "under-25": [0, 25],
@@ -66,6 +66,7 @@ export async function loadProductCandidates(
     const wantGender = (answers.gender || "").toLowerCase();
     const genders = wantGender === "male" || wantGender === "female" ? ["unisex", wantGender] : null;
     const band = BUDGET_BANDS[answers.budget];
+    const hidden = merchantsHiddenEverywhere();
 
     // Quiz gate (Step 3c): only APPROVED, in-stock products are eligible. This
     // retires Step 1's temporary trusted-merchant filter — approval status now
@@ -79,6 +80,9 @@ export async function loadProductCandidates(
         .eq("status", "approved")
         .not("image_url", "is", null);
       if (genders) q = q.in("gender", genders);
+      // Merchants hidden from every quiz (merchant-exclusions.ts) are dropped
+      // here, not just in JS, so they can't fill the per-query row limits.
+      if (hidden.length) q = q.not("merchant_name", "in", `(${hidden.map((m) => `"${m.replace(/"/g, '\\"')}"`).join(",")})`);
       // Budget is a ceiling, not a band (Step 4b) — don't hide cheaper relevant items.
       if (band) q = q.lte("price", band[1]);
       return q;
