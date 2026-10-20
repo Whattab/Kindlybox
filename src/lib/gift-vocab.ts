@@ -1,6 +1,6 @@
 // Canonical quiz vocabulary — the single source of truth for the values the
-// recommendation scorer understands. MUST stay in sync with the option ids in
-// src/components/quiz/QuizFlow.tsx. Both the admin add/edit form and the CSV
+// recommendation scorer understands. The quiz's answers are mapped onto these
+// values in src/lib/quiz-v2/map.ts (toQuizAnswers). Both the admin add/edit form and the CSV
 // bulk importer validate against these, so a typo can never reach the catalog.
 
 export const TAGS = [

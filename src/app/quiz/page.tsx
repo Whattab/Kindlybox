@@ -1,11 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
-import { QuizFlow } from "@/components/quiz/QuizFlow";
 import { QuizFlowV2 } from "@/components/quiz/v2/QuizFlowV2";
-import { QuizVersionCookie } from "@/components/quiz/v2/QuizVersionCookie";
-import { chooseQuizVersion, QUIZ_COOKIE } from "@/lib/quiz-v2/version";
 import { getAvailableDepth } from "@/lib/quiz-v2/depth-available";
 import { prefillFromParams } from "@/lib/quiz-v2/map";
-import { cookies } from "next/headers";
 import Link from "next/link";
 
 export default async function QuizPage({
@@ -16,28 +12,9 @@ export default async function QuizPage({
   const supabase = createClient();
   const { data: { session } } = await supabase.auth.getSession();
 
-  const userEmail = session?.user?.email || null;
-
-  // Step 6 switch: old (v1) or branching (v2) quiz — see lib/quiz-v2/version.ts.
-  const { version, remember } = chooseQuizVersion({
-    override: searchParams?.quiz,
-    cookie: cookies().get(QUIZ_COOKIE)?.value,
-    percent: process.env.QUIZ_V2_PERCENT,
-    killSwitch: process.env.QUIZ_V2_OFF,
-  });
-  const depthAvailable = version === "v2" ? await getAvailableDepth() : [];
-
-  const initialValues = {
-    recipient: typeof searchParams?.recipient === "string" ? searchParams.recipient : undefined,
-    occasion: typeof searchParams?.occasion === "string" ? searchParams.occasion : undefined,
-    budget: typeof searchParams?.budget === "string" ? searchParams.budget : undefined,
-    ageGroup: typeof searchParams?.ageGroup === "string" ? searchParams.ageGroup : undefined,
-    gender: typeof searchParams?.gender === "string" ? searchParams.gender : undefined,
-    interests:
-      typeof searchParams?.interests === "string"
-        ? searchParams.interests.split(",").filter(Boolean)
-        : undefined,
-  };
+  // The branching quiz is the only quiz (Step 6d retired v1 on 2026-10-20).
+  // Old-style links (/quiz?recipient=mom&occasion=birthday…) still prefill it.
+  const depthAvailable = await getAvailableDepth();
 
   return (
     <main className="min-h-screen bg-background flex flex-col">
@@ -76,15 +53,10 @@ export default async function QuizPage({
           </p>
         </div>
         
-        {remember && <QuizVersionCookie version={version} />}
-        {version === "v2" ? (
-          <QuizFlowV2
-            initialState={prefillFromParams(searchParams || {})}
-            depthAvailable={depthAvailable}
-          />
-        ) : (
-          <QuizFlow userEmail={userEmail} initialValues={initialValues} />
-        )}
+        <QuizFlowV2
+          initialState={prefillFromParams(searchParams || {})}
+          depthAvailable={depthAvailable}
+        />
       </div>
     </main>
   );
