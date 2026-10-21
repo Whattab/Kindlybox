@@ -28,3 +28,29 @@ export function parseAmazonPaste(raw: string | null | undefined): AmazonPaste {
   const imageUrl = img ? (img.startsWith("//") ? `https:${img}` : img) : null;
   return { asin, imageUrl };
 }
+
+// Amazon short links (mobile app "Share", SiteStripe "Short link") carry no
+// ASIN — the server has to follow them (see amazon-shortlink.ts). Only these
+// link-service hosts and Amazon's own sites are ever followed.
+export const AMAZON_SHORT_HOSTS = ["link.amazon", "amzlinks.in", "amzn.to", "a.co", "amzn.eu", "amzn.com"];
+const AMAZON_SITE = /(^|\.)amazon\.(com|ca|co\.uk|de|fr|it|es|in|com\.au|co\.jp|com\.mx)$/i;
+
+const hostOf = (u: string): string | null => {
+  try { return new URL(/^https?:\/\//i.test(u) ? u : `https://${u}`).hostname.toLowerCase(); } catch { return null; }
+};
+
+/** A pasted short link we know how to open (and nothing else is pasted with it). */
+export function amazonShortLink(raw: string | null | undefined): string | null {
+  const text = String(raw || "").trim();
+  if (!text || /\s|</.test(text)) return null;
+  const host = hostOf(text);
+  if (!host || !AMAZON_SHORT_HOSTS.includes(host.replace(/^www\./, ""))) return null;
+  return /^https?:\/\//i.test(text) ? text : `https://${text}`;
+}
+
+/** Hosts a short-link hop may lead to: link services or Amazon itself. */
+export function isFollowableAmazonHost(url: string): boolean {
+  const host = hostOf(url);
+  if (!host) return false;
+  return AMAZON_SHORT_HOSTS.includes(host.replace(/^www\./, "")) || AMAZON_SITE.test(host);
+}
