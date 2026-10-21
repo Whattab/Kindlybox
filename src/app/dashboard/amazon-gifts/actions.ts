@@ -149,8 +149,8 @@ export async function backfillAmazonTags(): Promise<{ updated: number; checked: 
 
 // Open an Amazon short link (link.amazon/…, amzn.to/…, a.co/…) pasted into the
 // importer and return its ASIN. Errors are returned, not thrown (prod redacts).
-export async function resolveAmazonLink(url: string): Promise<{ asin: string } | { error: string }> {
+export async function resolveAmazonLink(url: string): Promise<{ asin: string; url: string } | { error: string }> {
   await assertAdmin();
-  const asin = await resolveAmazonShortLink(url);
-  return asin ? { asin } : { error: "Couldn't open that Amazon short link. Open it in your browser and paste the full product address (with /dp/…) or the 10-character ASIN instead." };
+  const found = await resolveAmazonShortLink(url);
+  return found ? found : { error: "Couldn't open that Amazon short link. Open it in your browser and paste the full product address (with /dp/…) or the 10-character ASIN instead." };
 }

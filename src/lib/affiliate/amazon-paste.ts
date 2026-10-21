@@ -54,3 +54,19 @@ export function isFollowableAmazonHost(url: string): boolean {
   if (!host) return false;
   return AMAZON_SHORT_HOSTS.includes(host.replace(/^www\./, "")) || AMAZON_SITE.test(host);
 }
+
+/**
+ * A starting product name from the words Amazon puts before /dp/ in a full
+ * link ("/Willow-Tree-hand-painted-sculpted-Remembrance/dp/B003OSSKWK" →
+ * "Willow Tree Hand Painted Sculpted Remembrance"). Null when there's none.
+ */
+export function nameFromAmazonUrl(raw: string | null | undefined): string | null {
+  const text = String(raw || "").trim();
+  const m = text.match(/amazon\.[a-z.]+\/([^/?#\s]+)\/(?:dp|gp\/product)\/[A-Z0-9]{10}/i);
+  if (!m) return null;
+  let slug: string;
+  try { slug = decodeURIComponent(m[1]); } catch { slug = m[1]; }
+  const words = slug.replace(/[-_+]+/g, " ").replace(/\s+/g, " ").trim();
+  if (words.length < 3 || /^(dp|gp|exec|s)$/i.test(words)) return null;
+  return words.split(" ").map((w) => (/^[a-z]/.test(w) ? w[0].toUpperCase() + w.slice(1) : w)).join(" ").slice(0, 120);
+}

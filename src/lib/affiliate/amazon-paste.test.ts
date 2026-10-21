@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { amazonShortLink, isFollowableAmazonHost, parseAmazonPaste } from "./amazon-paste";
+import { amazonShortLink, isFollowableAmazonHost, nameFromAmazonUrl, parseAmazonPaste } from "./amazon-paste";
 
 const SITESTRIPE = `<a href="https://www.amazon.com/dp/B07CSKGLMM?&amp;linkCode=li2&amp;tag=kindlybox0c-20&amp;linkId=abc&amp;language=en_US&amp;ref_=as_li_ss_il" target="_blank"><img border="0" src="//ws-na.amazon-adsystem.com/widgets/q?_encoding=UTF8&amp;ASIN=B07CSKGLMM&amp;Format=_SL250_&amp;ID=AsinImage&amp;MarketPlace=US&amp;ServiceVersion=20070822&amp;WS=1&amp;tag=kindlybox0c-20&amp;language=en_US" ></a><img src="https://ir-na.amazon-adsystem.com/e/ir?t=kindlybox0c-20&amp;language=en_US&amp;l=li2&amp;o=1&amp;a=B07CSKGLMM" width="1" height="1" border="0" alt="" style="border:none !important; margin:0px !important;" />`;
 
@@ -38,5 +38,17 @@ describe("Amazon short links", () => {
     expect(isFollowableAmazonHost("https://smile.amazon.co.uk/x")).toBe(true);
     expect(isFollowableAmazonHost("https://amazon.com.evil.example/x")).toBe(false);
     expect(isFollowableAmazonHost("http://169.254.169.254/latest")).toBe(false);
+  });
+});
+
+describe("name from an Amazon link", () => {
+  it("reads the words before /dp/", () => {
+    expect(nameFromAmazonUrl("https://www.amazon.com/Willow-Tree-hand-painted-sculpted-Remembrance/dp/B003OSSKWK/ref=sr_1_3?tag=x"))
+      .toBe("Willow Tree Hand Painted Sculpted Remembrance");
+  });
+  it("returns null when the link has no product words", () => {
+    expect(nameFromAmazonUrl("https://www.amazon.com/dp/B003OSSKWK")).toBeNull();
+    expect(nameFromAmazonUrl("B003OSSKWK")).toBeNull();
+    expect(nameFromAmazonUrl("https://link.amazon/B0hvLlztp")).toBeNull();
   });
 });

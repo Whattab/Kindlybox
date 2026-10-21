@@ -6,7 +6,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { Loader2, PackagePlus, Check, AlertTriangle, Sparkles } from "lucide-react";
-import { amazonShortLink, parseAmazonPaste } from "@/lib/affiliate/amazon-paste";
+import { amazonShortLink, nameFromAmazonUrl, parseAmazonPaste } from "@/lib/affiliate/amazon-paste";
 import type { ImporterVocab } from "@/lib/amazon-assist";
 import { addAmazonGift, resolveAmazonLink, suggestAmazonTags } from "./actions";
 
@@ -50,13 +50,19 @@ export function AmazonImporter({ vocab, preset }: { vocab: ImporterVocab; preset
     setPaste(v);
     const p = parseAmazonPaste(v);
     if (p.imageUrl) setImageUrl(p.imageUrl); // SiteStripe snippet → official image link
+    // A full link's words before /dp/ give a starting name (only if Name is empty).
+    const prefillName = (url: string) => {
+      const n = nameFromAmazonUrl(url);
+      if (n) setName((cur) => cur.trim() ? cur : n);
+    };
+    prefillName(v);
     // Short links (link.amazon, amzn.to, a.co) carry no ASIN — the server opens them.
     const short = !p.asin && amazonShortLink(v);
     if (short) {
       setResolving(true);
       setError(null);
       resolveAmazonLink(short)
-        .then((r) => { if ("asin" in r) setPaste(r.asin); else setError(r.error); })
+        .then((r) => { if ("asin" in r) { setPaste(r.asin); prefillName(r.url); } else setError(r.error); })
         .catch(() => setError("Couldn't open that Amazon short link. Paste the ASIN instead."))
         .finally(() => setResolving(false));
     }
