@@ -6,9 +6,9 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { Loader2, PackagePlus, Check, AlertTriangle, Sparkles } from "lucide-react";
-import { parseAmazonPaste } from "@/lib/affiliate/amazon-paste";
+import { amazonShortLink, parseAmazonPaste } from "@/lib/affiliate/amazon-paste";
 import type { ImporterVocab } from "@/lib/amazon-assist";
-import { addAmazonGift, suggestAmazonTags } from "./actions";
+import { addAmazonGift, resolveAmazonLink, suggestAmazonTags } from "./actions";
 
 const chip = "cursor-pointer select-none rounded-full border px-3 py-1.5 text-sm transition-colors";
 const on = "bg-accent text-white border-accent";
@@ -45,10 +45,21 @@ export function AmazonImporter({ vocab, preset }: { vocab: ImporterVocab; preset
   const [suggesting, startSuggest] = useTransition();
 
   const parsed = useMemo(() => parseAmazonPaste(paste), [paste]);
+  const [resolving, setResolving] = useState(false);
   const onPaste = (v: string) => {
     setPaste(v);
     const p = parseAmazonPaste(v);
     if (p.imageUrl) setImageUrl(p.imageUrl); // SiteStripe snippet → official image link
+    // Short links (link.amazon, amzn.to, a.co) carry no ASIN — the server opens them.
+    const short = !p.asin && amazonShortLink(v);
+    if (short) {
+      setResolving(true);
+      setError(null);
+      resolveAmazonLink(short)
+        .then((r) => { if ("asin" in r) setPaste(r.asin); else setError(r.error); })
+        .catch(() => setError("Couldn't open that Amazon short link. Paste the ASIN instead."))
+        .finally(() => setResolving(false));
+    }
   };
 
   const toggle = (list: string[], set: (v: string[]) => void, v: string) =>
@@ -105,14 +116,16 @@ export function AmazonImporter({ vocab, preset }: { vocab: ImporterVocab; preset
     <div className="space-y-6">
       <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-xl shadow-primary/5 border border-gray-100 space-y-5">
         <div>
-          <label className={label}>Paste: ASIN, Amazon URL, or SiteStripe image snippet</label>
+          <label className={label}>Paste: ASIN, Amazon URL, short link, or SiteStripe image snippet</label>
           <textarea value={paste} onChange={(e) => onPaste(e.target.value)} rows={2}
             placeholder={'B07CSKGLMM  ·  https://www.amazon.com/dp/B07CSKGLMM  ·  <a href="…"><img src="//ws-na.amazon-adsystem.com/…"></a>'}
             className={`${field} font-mono text-xs`} />
           <p className="text-xs mt-1 text-gray-400">
-            {parsed.asin
+            {resolving
+              ? <span className="text-gray-600">Opening Amazon short link…</span>
+              : parsed.asin
               ? <span className="text-emerald-700">ASIN {parsed.asin}{parsed.imageUrl ? " · SiteStripe image found" : ""}</span>
-              : <>Tip: SiteStripe → <b>Image</b> → copy the HTML, and the image fills in too.</>}
+              : <>Tip: SiteStripe → <b>Image</b> → copy the HTML, and the image fills in too. Short links (link.amazon, amzn.to) work too.</>}
           </p>
         </div>
 
