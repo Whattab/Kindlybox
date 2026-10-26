@@ -99,7 +99,8 @@ export async function loadProductCandidates(
     if (queries.length === 0) queries.push(base().limit(400));
     // Step 7 "Last-minute ideas" / "An experience instead": gift cards and
     // subscriptions rarely carry interest tags, so pull them in explicitly.
-    if (opts.noShip) {
+    // Same for the "experience" feel — the only first picks gift cards may join.
+    if (opts.noShip || answers.giftFeel === "experience") {
       queries.push(base().or("title.ilike.%gift card%,title.ilike.%egift%,title.ilike.%e-gift%,title.ilike.%subscription%,title.ilike.%membership%").limit(400));
     }
 

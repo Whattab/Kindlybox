@@ -67,7 +67,7 @@ async function loadProductCandidates(answers: QuizAnswers, opts: { noShip?: bool
   if (answers.recipient) queries.push(base().contains("recipients", [answers.recipient]).limit(400));
   if (answers.occasion) queries.push(base().contains("occasions", [answers.occasion]).limit(400));
   if (queries.length === 0) queries.push(base().limit(400));
-  if (opts.noShip) queries.push(base().or("title.ilike.%gift card%,title.ilike.%egift%,title.ilike.%e-gift%,title.ilike.%subscription%,title.ilike.%membership%").limit(400));
+  if (opts.noShip || answers.giftFeel === "experience") queries.push(base().or("title.ilike.%gift card%,title.ilike.%egift%,title.ilike.%e-gift%,title.ilike.%subscription%,title.ilike.%membership%").limit(400));
   const results = await Promise.all(queries);
   const map = new Map<string, any>();
   for (const r of results) for (const p of (r.data || [])) if (!map.has(p.id)) map.set(p.id, p);
@@ -81,7 +81,7 @@ async function loadProductCandidates(answers: QuizAnswers, opts: { noShip?: bool
       price_min: price, price_max: price, tags: p.tags || [], occasions: p.occasions || [],
       recipients: p.recipients || [], gender: p.gender || "unisex", slug: null,
       destination_url: p.affiliate_link, affiliate_url: p.affiliate_link, affiliate_network: p.network || "awin",
-      active: true, style: p.style || [], gift_type: p.gift_type || [], avoid_flags: p.avoid_flags || [], primary_interest: p.primary_interest || null,
+      active: true, style: p.style || [], gift_type: p.gift_type || [], avoid_flags: p.avoid_flags || [], primary_interest: p.primary_interest || null, merchant: p.merchant_name || null,
     };
     (g as any).__source = "product";
     return g;
