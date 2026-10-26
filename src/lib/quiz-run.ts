@@ -4,7 +4,7 @@
 // Free-text interpretation and emailing stay with the callers.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getRecommendations, variantKey, type GiftScore, type QuizAnswers, type RecommendOptions } from "./recommend";
+import { getRecommendations, shopOf, variantKey, type GiftScore, type QuizAnswers, type RecommendOptions, type Refinement } from "./recommend";
 import { normalizeSuggestion, SUGGESTION_SELECT } from "./quiz-email";
 import { loadProductCandidates } from "./affiliate/candidates";
 import { generatePersonalizedReasons } from "./personalize";
@@ -142,14 +142,18 @@ export async function swapOnePick(input: {
   const shownNames = Array.from(new Set([...(stored.shown?.names || []), ...current.map((x) => variantKey(x.n!.gift.name || ""))]));
 
   const answers = answersFromSession(stored);
+  // A swap on a "Last-minute ideas" / "An experience instead" page keeps that
+  // page's rule (the mode survives a chain of swaps via swapMode).
+  const mode = stored.refinement === "swap" ? stored.swapMode : stored.refinement;
+  const noShipMode: Refinement | undefined = mode === "last-minute" || mode === "experience" ? mode : undefined;
   const { data: gifts } = await db.from("gifts").select("*").eq("active", true);
-  const catalogue = [...(gifts || []), ...(await loadProductCandidates(answers))];
+  const catalogue = [...(gifts || []), ...(await loadProductCandidates(answers, { noShip: !!noShipMode }))];
   // One gift per shop: the replacement can't come from a shop the kept picks use.
   const keptShops = current.filter((x) => x.row.id !== suggestionId)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- joined row shape
-    .map((x) => (x.row as any).products?.merchant_name as string | undefined).filter((m): m is string => !!m);
+    .map((x) => shopOf({ name: x.n!.gift.name, merchant: (x.row as any).products?.merchant_name })).filter(Boolean);
   const pickOne = (strict: boolean) => getRecommendations(answers, catalogue, {
-    seed: Date.now(), limit: 1, excludeIds: shownIds, excludeNames: shownNames, excludeMerchants: keptShops, strict,
+    seed: Date.now(), limit: 1, excludeIds: shownIds, excludeNames: shownNames, excludeMerchants: keptShops, strict, refinement: noShipMode,
   })[0];
   // Prefer a genuine match; only fall back to the best remaining gift if none.
   const replacement = pickOne(true) || pickOne(false);
@@ -158,7 +162,7 @@ export async function swapOnePick(input: {
   const { data: session, error } = await db.from("quiz_sessions").insert([{
     user_id: parent.user_id,
     answers: {
-      ...stored, refinedFrom: parent.id, refinement: "swap",
+      ...stored, refinedFrom: parent.id, refinement: "swap", swapMode: noShipMode,
       refinementDepth: Number(stored.refinementDepth || 0) + 1,
       shown: { ids: shownIds, names: shownNames },
     },

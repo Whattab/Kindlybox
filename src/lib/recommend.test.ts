@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cheaperBudget, getRecommendations, isNoShipGift, styleOf, variantKey, type Gift, type QuizAnswers } from "./recommend";
+import { cheaperBudget, getRecommendations, isGiftCard, isNoShipGift, shopOf, styleOf, variantKey, type Gift, type QuizAnswers } from "./recommend";
 
 let seq = 0;
 const g = (o: Partial<Gift>): Gift => ({
@@ -289,5 +289,46 @@ describe("one gift per shop (2026-10-20)", () => {
     ];
     const one = getRecommendations({ ...base, interests: ["gardening"] }, pool, { seed: 1, limit: 1, excludeMerchants: ["Flowers Fast"] });
     expect(one.map((x) => x.gift.name)).toEqual(["Garden Kneeler"]);
+  });
+});
+
+describe("gift cards only on request (2026-10-26)", () => {
+  const card = g({ name: "Starbucks eGift Card", tags: ["gift cards", "coffee"], merchant: "Giftcards.com" });
+  const press = g({ name: "French Press", tags: ["coffee"] });
+  const ans: QuizAnswers = { ...base, interests: ["coffee"] };
+  it("recognises gift cards by shop or title", () => {
+    expect(isGiftCard(card)).toBe(true);
+    expect(isGiftCard(g({ name: "Boost $20 Prepaid Phone Card", merchant: "Giftcards.com" }))).toBe(true);
+    expect(isGiftCard(g({ name: "PawFurEver E-Gift Card", merchant: "PawFurEver" }))).toBe(true);
+    expect(isGiftCard(press)).toBe(false);
+  });
+  it("first picks leave gift cards out", () => {
+    expect(names(getRecommendations(ans, [card, press], { seed: 1, limit: 3 }))).toEqual(["French Press"]);
+  });
+  it("the 'experience' feel lets them in", () => {
+    expect(names(getRecommendations({ ...ans, giftFeel: "experience" }, [card, press], { seed: 1, limit: 3 }))).toContain("Starbucks eGift Card");
+  });
+  it("last-minute offers them", () => {
+    expect(names(getRecommendations(ans, [card, press], { seed: 1, limit: 3, refinement: "last-minute" }))).toEqual(["Starbucks eGift Card"]);
+  });
+  it("a mailed (physical) card isn't last-minute", () => {
+    expect(isNoShipGift(g({ name: "Macy's Physical Gift Card" }))).toBe(false);
+  });
+});
+
+describe("gift card brand is the shop (2026-10-26)", () => {
+  const gc = (name: string) => g({ name, tags: ["gaming"], merchant: "Giftcards.com" });
+  it("names the brand, merging spelling variants", () => {
+    expect(shopOf(gc("Lowe's eGift Card"))).toBe(shopOf(gc("Lowes eGift Card")));
+    expect(shopOf(gc("Macy's Physical Gift Card"))).toBe(shopOf(gc("Macys eGift Card")));
+    expect(shopOf(gc("Dave & Buster's Gift Card"))).toBe(shopOf(gc("Dave And Busters eGift Card")));
+    expect(shopOf(gc("Nintendo $20 eGift Card"))).not.toBe(shopOf(gc("Discord Gift Card")));
+    expect(shopOf(g({ name: "Rose Bouquet", merchant: "Flowers Fast" }))).toBe("flowers fast");
+  });
+  it("a last-minute page can show several brands' cards, one per brand", () => {
+    const pool = [gc("Discord Gift Card"), gc("Nintendo $20 eGift Card"), gc("Nintendo $35 eGift Card"), gc("Google Play eGift Card")];
+    const out = names(getRecommendations({ ...base, interests: ["gaming"] }, pool, { seed: 1, limit: 3, refinement: "last-minute" }));
+    expect(out).toHaveLength(3);
+    expect(out.filter((n) => n.startsWith("Nintendo"))).toHaveLength(1);
   });
 });

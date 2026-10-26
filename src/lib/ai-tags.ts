@@ -144,7 +144,7 @@ export function finalizeItemTags(parts: Partial<ItemTags>[], vocab: Vocab): Item
   return { interests, style, gift_type, avoid_flags, occasions, recipients, primary_interest: pickPrimaryInterest(interests, vocab) };
 }
 
-async function aiTagItem(text: string, vocab: Vocab): Promise<Partial<ItemTags>> {
+async function aiTagItem(text: string, vocab: Vocab, hint?: string): Promise<Partial<ItemTags>> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return {};
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -158,6 +158,7 @@ async function aiTagItem(text: string, vocab: Vocab): Promise<Partial<ItemTags>>
     "- a gaming/office chair is furniture, NOT \"home & kitchen\"; a pet supplement is \"pets\", NOT \"fitness & wellness\";",
     "- exercise gear is \"fitness & wellness\", NOT \"home & kitchen\"; a cologne/candle is self-care/home, NOT \"travel\".",
     "Occasions/recipients: only when the item genuinely suits them. Be careful with \"baby shower\" — tag it ONLY for newborn/nursery items (baby clothing, a nursery/newborn theme like animals, rainbow, 'baby', 'princess'). A personalized name sign with a SPORTS, GAMING, or older-kid hobby theme (gamer, basketball, football, volleyball, baseball) is NOT a baby-shower gift — use \"birthday\" or leave occasions empty. If unsure, leave them empty rather than guessing.",
+    ...(hint ? ["", hint] : []),
     "",
     `PRODUCT: "${text}"`,
     "",
@@ -178,8 +179,9 @@ async function aiTagItem(text: string, vocab: Vocab): Promise<Partial<ItemTags>>
   return { interests: arr(p.interests), style: arr(p.style), gift_type: arr(p.gift_type), avoid_flags: arr(p.avoid_flags), occasions: arr(p.occasions), recipients: arr(p.recipients) };
 }
 
-/** AI-tag a catalogue item (product/gift) into approved tags. Fail-soft. */
-export async function tagItem(title: string, description: string | null | undefined, db: SupabaseClient): Promise<ItemTags> {
+/** AI-tag a catalogue item (product/gift) into approved tags. Fail-soft.
+ *  `hint` adds rules for one kind of item to the prompt (e.g. gift cards). */
+export async function tagItem(title: string, description: string | null | undefined, db: SupabaseClient, hint?: string): Promise<ItemTags> {
   const text = [title, description].filter(Boolean).join(". ").trim();
   const empty: ItemTags = { interests: [], style: [], gift_type: [], avoid_flags: [], occasions: [], recipients: [], primary_interest: null };
   if (!text) return empty;
@@ -187,7 +189,7 @@ export async function tagItem(title: string, description: string | null | undefi
   try { vocab = await loadVocabulary(db); } catch { return empty; }
   const det = deterministicTags(text, vocab); // interests + avoid flags
   let ai: Partial<ItemTags> = {};
-  try { ai = await aiTagItem(text, vocab); } catch (e) {
+  try { ai = await aiTagItem(text, vocab, hint); } catch (e) {
     console.error("[ai-tags] Gemini tagItem failed (deterministic only):", (e as any)?.message || e);
   }
   return finalizeItemTags([det, ai], vocab);

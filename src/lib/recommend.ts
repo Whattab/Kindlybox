@@ -308,7 +308,7 @@ export interface RecommendOptions {
   /** Only gifts priced strictly below this ("Cheaper"). */
   priceCeiling?: number;
   refinement?: Refinement;
-  /** Shops already on screen (a swap keeps the other picks) — never add a
+  /** Shops (shopOf keys) already on screen (a swap keeps the other picks) — never add a
    *  second gift from one of these. */
   excludeMerchants?: string[];
   /** Return nothing rather than fall back to gifts that don't match the
@@ -326,7 +326,19 @@ export function isNoShipGift(gift: Gift): boolean {
   const gt = (gift.gift_type || []).map(normKey);
   if (gt.includes("digital") || gt.includes("experience")) return true;
   const title = (gift.name || "").toLowerCase();
+  // "Macy's Physical Gift Card" is mailed — not a last-minute gift.
+  if (containsWord(title, "physical")) return false;
   return NO_SHIP_WORDS.some((w) => containsWord(title, w));
+}
+
+// Gift cards (owner rule, 2026-10-26) are offered only by "Last-minute ideas",
+// "An experience instead", or when the shopper chose the "experience" feel —
+// otherwise first picks stay matched gifts, now that cards carry interest tags.
+const GIFT_CARD_WORDS = ["gift card", "giftcard", "egift", "e-gift"];
+export function isGiftCard(gift: Gift): boolean {
+  if (shopKey(gift.merchant) === "giftcards.com") return true;
+  const title = (gift.name || "").toLowerCase();
+  return GIFT_CARD_WORDS.some((w) => containsWord(title, w));
 }
 
 // "An experience instead": a real experience tag, or something no-ship.
@@ -360,6 +372,19 @@ const VARIANT_WORDS = new Set([
 /** Normalised shop name for the one-gift-per-shop rule ("" = no shop). */
 export function shopKey(merchant: string | null | undefined): string {
   return (merchant || "").toLowerCase().trim();
+}
+
+// The shop for the one-per-shop rule. Giftcards.com resells every brand's
+// cards, so there the brand is the shop — otherwise a "Last-minute ideas" page
+// could hold only one gift card. "Lowe's eGift Card" / "Lowes eGift Card" and
+// "Macy's Physical Gift Card" / "Macys eGift Card" are one brand each.
+const CARD_WORDS = new Set(["egift", "e", "gift", "giftcard", "card", "physical", "traditional", "and", "com"]);
+export function shopOf(gift: Pick<Gift, "name" | "merchant">): string {
+  const shop = shopKey(gift.merchant);
+  if (shop !== "giftcards.com") return shop;
+  const brand = (gift.name || "").toLowerCase().replace(/'/g, "").replace(/&/g, " and ")
+    .split(/[^a-z]+/).filter((w) => w && !CARD_WORDS.has(w)).slice(0, 2).join(" ");
+  return brand ? `${shop}:${brand}` : shop;
 }
 
 export function variantKey(name: string): string {
@@ -414,13 +439,14 @@ export function getRecommendations(
   const excludeShops = new Set((options.excludeMerchants || []).map(shopKey).filter(Boolean));
   const unseen = excludeIds.size === 0 && excludeKeys.size === 0 && excludeShops.size === 0 ? catalogue : catalogue.filter(
     (gift) => !excludeIds.has(gift.id) && !excludeKeys.has(variantKey(gift.name || ""))
-      && !(gift.merchant && excludeShops.has(shopKey(gift.merchant))),
+      && !(gift.merchant && excludeShops.has(shopOf(gift))),
   );
   const underCeiling = options.priceCeiling == null ? unseen : unseen.filter((gift) => (gift.price_min ?? 0) < options.priceCeiling!);
   // "Last-minute ideas" / "An experience instead" only offer gifts that fit.
   const refineFit = options.refinement === "last-minute" ? underCeiling.filter(isNoShipGift)
     : options.refinement === "experience" ? underCeiling.filter(isExperienceGift)
-    : underCeiling;
+    : feelBucket(answers.giftFeel || "") === "experience" ? underCeiling
+    : underCeiling.filter((gift) => !isGiftCard(gift));
 
   const filteredGifts = refineFit.filter(gift => withinBudget(gift.price_min, answers.budget));
 
@@ -698,7 +724,7 @@ export function getRecommendations(
       if (key && nameSeen.has(key)) continue;
       // One gift per shop (owner rule, 2026-10-20): the pool is best-first, so
       // each shop keeps only its best match. Curated gifts have no shop.
-      const shop = shopKey(s.gift.merchant);
+      const shop = shopOf(s.gift);
       if (shop && shopSeen.has(shop)) continue;
       if (key) nameSeen.add(key);
       if (shop) shopSeen.add(shop);
