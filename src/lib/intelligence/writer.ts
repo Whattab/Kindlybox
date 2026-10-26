@@ -18,8 +18,22 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createServiceClient } from "@/utils/supabase/admin";
 import { TAGS, OCCASIONS, RECIPIENTS } from "@/lib/gift-vocab";
+import { isBlockedTitle } from "@/lib/affiliate/blocklist";
+import { merchantsHiddenEverywhere } from "@/lib/affiliate/merchant-exclusions";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
+
+// Articles use the same gate as the quiz (candidates.ts): approved products
+// only, never from a merchant hidden everywhere (Printerval), never a
+// blocklisted title. Staged/rejected items had been reachable here.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- supabase query builder
+function articleSafe(q: any) {
+  q = q.eq("active", true).eq("status", "approved").not("image_url", "is", null);
+  const hidden = merchantsHiddenEverywhere();
+  if (hidden.length) q = q.not("merchant_name", "in", `(${hidden.map((m) => `"${m.replace(/"/g, '\\"')}"`).join(",")})`);
+  return q;
+}
+const notBlocked = (rows: ProductRow[] | null) => (rows ?? []).filter((r) => !isBlockedTitle(r.title, r.merchant_name));
 const MAX_PRODUCTS = 8;
 
 // The token the article page swaps for the product cards.
@@ -165,11 +179,11 @@ const RECIPIENT_ALIAS: Record<string, string[]> = {
 export async function searchCatalogue(query: string, limit = 24): Promise<ProductBlock[]> {
   const admin = createServiceClient();
   const q = query.trim().replace(/[%,]/g, " ").trim();
-  const base = () => admin.from("products").select(PRODUCT_COLS).eq("active", true).not("image_url", "is", null);
+  const base = () => articleSafe(admin.from("products").select(PRODUCT_COLS));
 
   if (!q) {
     const { data } = await base().limit(limit);
-    return ((data ?? []) as ProductRow[]).map(productToBlock);
+    return notBlocked(data as ProductRow[] | null).map(productToBlock);
   }
 
   const ql = q.toLowerCase();
@@ -180,7 +194,7 @@ export async function searchCatalogue(query: string, limit = 24): Promise<Produc
   const pool: ProductRow[] = [];
   const seen = new Set<string>();
   const add = (rows: ProductRow[] | null) => {
-    for (const r of rows ?? []) if (!seen.has(r.id)) { seen.add(r.id); pool.push(r); }
+    for (const r of notBlocked(rows)) if (!seen.has(r.id)) { seen.add(r.id); pool.push(r); }
   };
 
   add((await base().or(`title.ilike.%${q}%,description.ilike.%${q}%`).limit(limit)).data as ProductRow[] | null);
@@ -273,7 +287,7 @@ async function collectProducts(opp: any): Promise<ProductBlock[]> {
   const f = deriveTopicFilters(text);
 
   const base = () => {
-    let q = admin.from("products").select(PRODUCT_COLS).eq("active", true).not("image_url", "is", null);
+    let q = articleSafe(admin.from("products").select(PRODUCT_COLS));
     if (f.priceMax) q = q.lte("price", f.priceMax);
     if (f.gender) q = q.in("gender", ["unisex", f.gender]);
     return q;
@@ -282,7 +296,7 @@ async function collectProducts(opp: any): Promise<ProductBlock[]> {
   const pool: ProductRow[] = [];
   const seen = new Set<string>();
   const add = (rows: ProductRow[] | null) => {
-    for (const r of rows ?? []) {
+    for (const r of notBlocked(rows)) {
       if (seen.has(r.id)) continue;
       seen.add(r.id);
       pool.push(r);
