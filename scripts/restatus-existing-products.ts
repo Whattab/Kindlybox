@@ -4,6 +4,7 @@
 //   hard-blocked / trademark-on-untrusted → rejected
 //   review-flagged (mild profanity / partisan / rec-drugs) → staged
 //   everything else → left approved
+// Only currently-approved rows change (2026-10-26): owner rejections stand.
 //
 //   npx tsx scripts/restatus-existing-products.ts --dry    # counts only (DEV)
 //   npx tsx scripts/restatus-existing-products.ts          # apply (DEV)
@@ -39,6 +40,7 @@ async function main() {
   console.log(`Re-status existing products → ${PROD ? "PROD" : "DEV"}${DRY ? " (dry run)" : ""}`);
   const reject: string[] = [];
   const stage: string[] = [];
+  const hits: string[] = [];
   let scanned = 0;
   for (let from = 0; ; from += 1000) {
     const { data, error } = await db
@@ -51,8 +53,11 @@ async function main() {
     for (const r of rows as any[]) {
       scanned++;
       const t = target(r.title, r.merchant_name);
-      if (t === "rejected" && r.status !== "rejected") reject.push(r.id);
-      else if (t === "staged" && r.status !== "staged") stage.push(r.id);
+      // Only APPROVED rows move: never un-reject a product, never re-stage one
+      // that's already waiting for review.
+      if (r.status !== "approved") continue;
+      if (t === "rejected") { reject.push(r.id); hits.push(`reject  ${r.merchant_name} | ${r.title}`); }
+      else if (t === "staged") { stage.push(r.id); hits.push(`stage   ${r.merchant_name} | ${r.title}`); }
     }
     if (rows.length < 1000) break;
   }
@@ -62,7 +67,7 @@ async function main() {
   console.log(`  → stage:  ${stage.length}`);
   console.log(`  → leave approved: ${scanned - reject.length - stage.length}`);
 
-  if (DRY) { console.log("\n(dry run — no changes written)"); return; }
+  if (DRY) { hits.sort().forEach((h) => console.log("  " + h)); console.log("\n(dry run — no changes written)"); return; }
   if (reject.length) await updateIn(reject, "rejected");
   if (stage.length) await updateIn(stage, "staged");
   console.log(`\nApplied: ${reject.length} rejected, ${stage.length} staged.`);

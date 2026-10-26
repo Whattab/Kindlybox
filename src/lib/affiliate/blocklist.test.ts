@@ -57,3 +57,21 @@ describe("isTrademarkBlocked + merchant-aware isBlockedTitle", () => {
     expect(isBlockedTitle("XXX Large Peace Lily", "Flowers Fast.com-Send Flowers Same Day Delivery")).toBe(false);
   });
 });
+
+describe("disguised profanity and adult jokes (2026-10-26)", () => {
+  it("flags the pill-joke and misspelled-profanity titles", () => {
+    expect(isReviewFlagged("Fukitol It's Okay I'm On 500mg Hoodie")).toBe(true);
+    expect(isReviewFlagged("Jules Winnfield Pulp Bad Mother Fcker Vintage Shirt")).toBe(true);
+    expect(isReviewFlagged("Dilf Fck Hot Dad Tank Top")).toBe(true);
+    expect(isReviewFlagged("Hooker And Blow Fishing Since 1869 Big Fans T-shirt")).toBe(true);
+    expect(isReviewFlagged("Let's Get Drunk And Drive The Golf Cart Funny T-shirt")).toBe(true);
+    expect(isReviewFlagged("Always Wash Your Balls Funny Golf T-shirt")).toBe(true);
+    expect(isReviewFlagged("Skull Unafraid Unmasked Unmuzzled Unvaccinated 4th Of July T-shirt")).toBe(true);
+  });
+  it("leaves look-alike clean titles alone", () => {
+    expect(isReviewFlagged("Ufuk Vintage (3' x 11')")).toBe(false);
+    expect(isReviewFlagged("Bowling Balls Bag")).toBe(false);
+    expect(isReviewFlagged("Golf Balls Gift Set")).toBe(false);
+    expect(isReviewFlagged("Dad Vaccinated Pets Record Book")).toBe(false);
+  });
+});

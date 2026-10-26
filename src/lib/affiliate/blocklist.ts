@@ -35,8 +35,15 @@ const MEDICAL_CLAIM_RE =
 const MILD_PROFANITY = ["fuck", "shit", "bitch", "asshole", "dick", "pussy", "slut", "whore", "middle finger", "damn", "crap", "bastard"];
 const PARTISAN = ["trump", "biden", "obama", "kamala", "kamala harris", "maga", "lets go brandon", "ridin with biden", "democrat", "republican", "liberal", "conservative", "antifa", "pro-life", "pro-choice", "blue lives matter", "defund"];
 const REC_DRUGS = ["weed", "marijuana", "cannabis", "420", "bong", "rolling papers", "stoner"];
+// Disguised profanity and adult jokes the whole-word list misses (2026-10-26):
+// "Fukitol … 500mg" pill-joke shirts, "Bad Mother Fcker", innuendo puns.
+const DISGUISED = [
+  "fukitol", "fuk", "fck", "fcker", "fckin", "fcking", "fking", "effing", "dilf", "milf",
+  "hooker and blow", "drunk and drive", "wash your balls", "lot of balls", "my balls",
+  "unvaccinated", "unmuzzled", "anti vax", "anti vaxxer",
+];
 
-export const REVIEW = [...MILD_PROFANITY, ...PARTISAN, ...REC_DRUGS];
+export const REVIEW = [...MILD_PROFANITY, ...PARTISAN, ...REC_DRUGS, ...DISGUISED];
 
 // ── TRADEMARK: reject only on untrusted merchants ───────────────────────────
 export const TRADEMARK = [
