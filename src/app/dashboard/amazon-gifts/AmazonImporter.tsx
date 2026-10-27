@@ -6,6 +6,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { Loader2, PackagePlus, Check, AlertTriangle, Sparkles } from "lucide-react";
+import { vocabLabel } from "@/lib/gift-vocab";
 import { amazonShortLink, nameFromAmazonUrl, parseAmazonPaste } from "@/lib/affiliate/amazon-paste";
 import type { ImporterVocab } from "@/lib/amazon-assist";
 import { addAmazonGift, resolveAmazonLink, suggestAmazonTags } from "./actions";
@@ -180,7 +181,7 @@ export function AmazonImporter({ vocab, preset }: { vocab: ImporterVocab; preset
           </div>
         </div>
 
-        <Chips title="Occasions" values={vocab.occasions} list={occasions} set={setOccasions} />
+        <Chips title="Occasions" values={vocab.occasions} list={occasions} set={setOccasions} labelOf={vocabLabel} />
         <Chips title="Recipients" values={vocab.recipients} list={recipients} set={setRecipients} />
         <Chips title="Gift feel" hint='the quiz asks “What kind of gift feels right?”' values={vocab.styles} list={style} set={setStyle} labelOf={(v) => STYLE_LABEL[v] || v} />
         <Chips title="Gift type" hint="digital/experience = last-minute ideas" values={vocab.giftTypes} list={giftType} set={setGiftType} />

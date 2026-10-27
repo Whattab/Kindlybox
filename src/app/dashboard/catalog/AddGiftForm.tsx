@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { createGift, updateGift, deleteGift } from "./actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import { PlusCircle, Save, Trash2, Loader2, CheckCircle2, Image as ImageIcon } from "lucide-react";
-import { TAGS, OCCASIONS, RECIPIENTS } from "@/lib/gift-vocab";
+import { TAGS, OCCASIONS, RECIPIENTS, vocabLabel } from "@/lib/gift-vocab";
 
 // Picking from checkboxes (instead of typing) makes a vocabulary typo impossible.
 // The canonical lists live in @/lib/gift-vocab so the form and the CSV importer
@@ -29,6 +29,7 @@ export type GiftFormInitial = {
 };
 
 function CheckboxGroup({ name, options, selected }: { name: string; options: readonly string[]; selected: string[] }) {
+  // Shown label may differ from the stored value (e.g. holidays → "Christmas & holidays").
   return (
     <div className="flex flex-wrap gap-2">
       {options.map((opt) => (
@@ -43,7 +44,7 @@ function CheckboxGroup({ name, options, selected }: { name: string; options: rea
             defaultChecked={selected.includes(opt)}
             className="rounded border-gray-300 text-accent focus:ring-accent"
           />
-          {opt}
+          {vocabLabel(opt)}
         </label>
       ))}
     </div>

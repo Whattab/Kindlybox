@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { EMPTY_STATE, type V2State } from "./graph";
-import { parseV2State, prefillFromParams, toQuizAnswers } from "./map";
+import { catalogueOccasion, parseV2State, prefillFromParams, toQuizAnswers } from "./map";
 
 const st = (o: Partial<V2State>): V2State => ({ ...EMPTY_STATE, ...o });
 
@@ -94,5 +94,17 @@ describe("parseV2State (untrusted browser JSON)", () => {
   it("handles non-object input", () => {
     expect(parseV2State(null).relationship).toBe("");
     expect(parseV2State("v2").saturday).toEqual([]);
+  });
+});
+
+describe("newer occasions map to catalogue values", () => {
+  it("searches the right catalogue occasion", () => {
+    expect(catalogueOccasion("newborn")).toBe("new baby");
+    expect(catalogueOccasion("new baby")).toBe("baby shower");
+    expect(catalogueOccasion("bachelor party")).toBe("bachelor/bachelorette party");
+    expect(catalogueOccasion("get well soon")).toBe("get well soon");
+  });
+  it("accepts them from the browser", () => {
+    expect(parseV2State({ relationship: "friend", lifeStage: "20s", occasion: "hostess gift" }).occasion).toBe("hostess gift");
   });
 });

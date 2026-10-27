@@ -186,7 +186,11 @@ export function withinBudget(priceMin: number, budget: string): boolean {
 // should be baby-appropriate even if a loosely-picked interest also matches. For
 // these, an occasion-tag match outscores a single interest; generic occasions
 // (birthday, anniversary…) keep the lower weight so interest still drives.
-const SPECIFIC_OCCASIONS = new Set(["baby shower", "wedding", "graduation", "promotion/retirement"]);
+const SPECIFIC_OCCASIONS = new Set([
+  "baby shower", "wedding", "graduation", "promotion/retirement",
+  // Added 2026-10-27: the occasion defines the gift, so occasion-tagged items lead.
+  "new baby", "get well soon", "engagement", "bridal shower", "hostess gift", "farewell", "bachelor/bachelorette party",
+]);
 export function occasionWeight(occasion: string): number {
   return SPECIFIC_OCCASIONS.has((occasion || "").toLowerCase().trim()) ? W.occasionSpecific : W.occasion;
 }

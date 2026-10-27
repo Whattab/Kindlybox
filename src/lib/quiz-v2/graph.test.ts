@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  EMPTY_STATE, depthOptions, feelOptions, genderShown, levelShown, lifeStageOptions, occasionOptions,
+  EMPTY_STATE, GATED_OCCASION_IDS, depthOptions, feelOptions, genderShown, levelShown, lifeStageOptions, occasionOptions,
   pruneState, visibleScreens, SCREENS, type V2State,
 } from "./graph";
 
@@ -87,5 +87,36 @@ describe("pruneState", () => {
   });
   it("drops depth whose branch was deselected", () => {
     expect(pruneState(st({ saturday: ["outdoors"], depth: ["coffee", "fishing"] })).depth).toEqual(["fishing"]);
+  });
+});
+
+describe("newer occasions (2026-10-27)", () => {
+  const ids = (s: Partial<V2State>, avail?: string[]) =>
+    occasionOptions({ ...EMPTY_STATE, ...s } as V2State, avail ? { occasionsAvailable: new Set(avail) } : {}).map((o) => o.id);
+
+  it("stay hidden until they have enough gifts", () => {
+    const shown = ids({ relationship: "friend", lifeStage: "20s" }, []);
+    for (const id of GATED_OCCASION_IDS) expect(shown).not.toContain(id);
+  });
+  it("appear once stocked, and 'Just because' stays last", () => {
+    const shown = ids({ relationship: "friend", lifeStage: "20s" }, GATED_OCCASION_IDS);
+    expect(shown).toEqual(expect.arrayContaining(["get well soon", "bridal shower", "galentine's day", "farewell", "hostess gift"]));
+    expect(shown[shown.length - 1]).toBe("just because");
+  });
+  it("only where they make sense", () => {
+    const kid = ids({ relationship: "child", lifeStage: "kid" }, GATED_OCCASION_IDS);
+    expect(kid).toContain("get well soon");
+    expect(kid).not.toContain("bridal shower");
+    expect(kid).not.toContain("bachelor party");
+    const partner = ids({ relationship: "partner" }, GATED_OCCASION_IDS);
+    expect(partner).toContain("engagement");
+    expect(partner).not.toContain("galentine's day");
+    expect(partner).not.toContain("hostess gift");
+  });
+  it("labels Holidays as Christmas & holidays, and the old 'New baby' button as Baby shower", () => {
+    const opts = occasionOptions({ ...EMPTY_STATE, relationship: "friend" } as V2State, { occasionsAvailable: new Set(GATED_OCCASION_IDS) });
+    expect(opts.find((o) => o.id === "holidays")?.label).toBe("Christmas & holidays");
+    expect(opts.find((o) => o.id === "new baby")?.label).toBe("Baby shower");
+    expect(opts.find((o) => o.id === "newborn")?.label).toBe("New baby");
   });
 });

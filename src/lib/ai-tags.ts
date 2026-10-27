@@ -167,6 +167,7 @@ async function aiTagItem(text: string, vocab: Vocab, hint?: string): Promise<Par
     `ALLOWED GIFT TYPES: ${vocab.giftTypeLabels.join(", ")}`,
     `ALLOWED AVOID FLAGS: ${vocab.avoidLabels.join(", ")}`,
     `ALLOWED OCCASIONS: ${vocab.occasionLabels.join(", ")}`,
+    '"holidays" means Christmas and other winter holidays. "new baby" is for gifts after the birth (vs. "baby shower"); "get well soon" is for someone ill or recovering (vs. "sympathy" for a loss); "hostess gift" is something to bring to a dinner party.',
     `ALLOWED RECIPIENTS: ${vocab.recipientLabels.join(", ")}`,
     "",
     "Pick 1-4 interests (include the specific sub-interest AND its parent when clear), 1-2 styles, 1 gift type, 0-3 occasions, 0-3 recipients, and any avoid flags that apply.",

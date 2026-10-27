@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { QuizFlowV2 } from "@/components/quiz/v2/QuizFlowV2";
 import { getAvailableDepth } from "@/lib/quiz-v2/depth-available";
+import { getAvailableOccasions } from "@/lib/quiz-v2/occasion-available";
 import { prefillFromParams } from "@/lib/quiz-v2/map";
 import Link from "next/link";
 
@@ -14,7 +15,7 @@ export default async function QuizPage({
 
   // The branching quiz is the only quiz (Step 6d retired v1 on 2026-10-20).
   // Old-style links (/quiz?recipient=mom&occasion=birthday…) still prefill it.
-  const depthAvailable = await getAvailableDepth();
+  const [depthAvailable, occasionsAvailable] = await Promise.all([getAvailableDepth(), getAvailableOccasions()]);
 
   return (
     <main className="min-h-screen bg-background flex flex-col">
@@ -56,6 +57,7 @@ export default async function QuizPage({
         <QuizFlowV2
           initialState={prefillFromParams(searchParams || {})}
           depthAvailable={depthAvailable}
+          occasionsAvailable={occasionsAvailable}
         />
       </div>
     </main>
