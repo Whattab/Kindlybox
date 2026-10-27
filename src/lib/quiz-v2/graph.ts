@@ -11,7 +11,11 @@ export type LifeStage = "baby" | "toddler" | "kid" | "tween" | "teen" | "20s" | 
 export type GenderChoice = "him" | "her" | "either";
 export type OccasionV2 =
   | "birthday" | "holidays" | "thank you" | "housewarming" | "retirement" | "wedding" | "new baby"
-  | "sympathy" | "just because" | "anniversary" | "valentine's day" | "graduation" | "mother's day" | "father's day";
+  | "sympathy" | "just because" | "anniversary" | "valentine's day" | "graduation" | "mother's day" | "father's day"
+  // Added 2026-10-27 — each is offered only once it has enough gifts (see GATED_OCCASIONS).
+  // ("new baby" above is the BABY SHOWER button; "newborn" is gifts after the birth.)
+  | "get well soon" | "engagement" | "bridal shower" | "newborn" | "congratulations" | "hostess gift"
+  | "galentine's day" | "farewell" | "bachelor party";
 export type Saturday =
   | "outdoors" | "kitchen" | "relaxing" | "gadgets" | "making" | "active" | "reading" | "hosting" | "traveling" | "pets";
 export type Level = "beginner" | "enthusiast" | "expert";
@@ -42,6 +46,8 @@ export const EMPTY_STATE: V2State = {
 export interface GraphContext {
   /** Depth options with enough approved products (10+). Undefined = all available. */
   depthAvailable?: ReadonlySet<string>;
+  /** Gated occasions with enough gifts (MIN_OCCASION_GIFTS+). Undefined = all available. */
+  occasionsAvailable?: ReadonlySet<string>;
 }
 
 export interface Option<T extends string = string> { id: T; label: string }
@@ -97,17 +103,37 @@ export const genderShown = (s: V2State) => !!s.relationship && s.relationship !=
 // ── S2 — occasion (options depend on S1) ──────────────────────────────────
 const BASE_OCCASIONS: Option<OccasionV2>[] = [
   { id: "birthday", label: "Birthday" },
-  { id: "holidays", label: "Holidays" },
+  { id: "holidays", label: "Christmas & holidays" },
   { id: "thank you", label: "Thank you" },
   { id: "housewarming", label: "Housewarming" },
   { id: "retirement", label: "Retirement" },
   { id: "wedding", label: "Wedding" },
-  { id: "new baby", label: "New baby" },
+  { id: "new baby", label: "Baby shower" },
   { id: "sympathy", label: "Sympathy" },
   { id: "just because", label: "Just because" },
 ];
 
-export function occasionOptions(s: V2State): Option<OccasionV2>[] {
+// Newer occasions appear only once the catalogue can back them up, and only
+// for relationships where they make sense.
+export const MIN_OCCASION_GIFTS = 5;
+const KID_STAGES: LifeStage[] = ["baby", "toddler", "kid", "tween", "teen"];
+type Rule = (s: V2State) => boolean;
+const adult: Rule = (s) => !KID_STAGES.includes(s.lifeStage as LifeStage);
+const peer: Rule = (s) => ["friend", "sibling", "coworker", "someone else"].includes(s.relationship) || (s.relationship === "child" && adult(s));
+export const GATED_OCCASIONS: { option: Option<OccasionV2>; show: Rule }[] = [
+  { option: { id: "get well soon", label: "Get well soon" }, show: () => true },
+  { option: { id: "congratulations", label: "Congratulations / new job" }, show: () => true },
+  { option: { id: "newborn", label: "New baby" }, show: adult },
+  { option: { id: "engagement", label: "Engagement" }, show: (s) => adult(s) && (peer(s) || s.relationship === "partner") },
+  { option: { id: "bridal shower", label: "Bridal shower" }, show: (s) => adult(s) && peer(s) },
+  { option: { id: "bachelor party", label: "Bachelor / bachelorette party" }, show: (s) => adult(s) && peer(s) },
+  { option: { id: "hostess gift", label: "Hostess gift" }, show: (s) => adult(s) && s.relationship !== "partner" },
+  { option: { id: "galentine's day", label: "Galentine's Day" }, show: (s) => adult(s) && ["friend", "sibling", "coworker", "someone else"].includes(s.relationship) },
+  { option: { id: "farewell", label: "Going away / farewell" }, show: (s) => adult(s) && ["friend", "sibling", "coworker", "someone else"].includes(s.relationship) },
+];
+export const GATED_OCCASION_IDS = GATED_OCCASIONS.map((g) => g.option.id);
+
+export function occasionOptions(s: V2State, ctx: GraphContext = {}): Option<OccasionV2>[] {
   const out: Option<OccasionV2>[] = [];
   if (s.relationship === "partner") {
     out.push({ id: "anniversary", label: "Anniversary" }, { id: "valentine's day", label: "Valentine's Day" });
@@ -119,7 +145,11 @@ export function occasionOptions(s: V2State): Option<OccasionV2>[] {
   }
   // Retirement makes no sense for a child.
   const base = s.relationship === "child" ? BASE_OCCASIONS.filter((o) => o.id !== "retirement") : BASE_OCCASIONS;
-  return [...base.slice(0, 1), ...out, ...base.slice(1)];
+  const gated = GATED_OCCASIONS
+    .filter((g) => g.show(s) && (!ctx.occasionsAvailable || ctx.occasionsAvailable.has(g.option.id)))
+    .map((g) => g.option);
+  // "Just because" stays last.
+  return [...base.slice(0, 1), ...out, ...base.slice(1, -1), ...gated, ...base.slice(-1)];
 }
 
 /** Sympathy skips the hobby questions (S3–S4) and never offers "fun". */
@@ -246,7 +276,7 @@ export const SCREENS: Screen[] = [
     id: "occasion",
     title: () => "What's the occasion?",
     show: () => true,
-    valid: (s) => has(occasionOptions(s), s.occasion),
+    valid: (s, ctx) => has(occasionOptions(s, ctx), s.occasion),
   },
   {
     id: "saturday",
@@ -293,7 +323,7 @@ export function pruneState(s: V2State, ctx: GraphContext = {}): V2State {
   const out: V2State = { ...s };
   if (out.lifeStage && !has(lifeStageOptions(out), out.lifeStage)) out.lifeStage = "";
   if (!genderShown(out)) out.gender = "";
-  if (out.occasion && !has(occasionOptions(out), out.occasion)) out.occasion = "";
+  if (out.occasion && !has(occasionOptions(out, ctx), out.occasion)) out.occasion = "";
   if (isSympathy(out)) {
     out.saturday = [];
     out.depth = [];

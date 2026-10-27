@@ -11,6 +11,7 @@ import {
   Cake, Snowflake, HandHeart, Home, Gem, GlassWater, GraduationCap, Sparkles, Gift, Sun, Leaf,
   Trees, Utensils, Sofa, Laptop, Palette, Dumbbell, BookOpen, PartyPopper, Plane, PawPrint,
   Wrench, Ticket, Shuffle, CheckCircle2, Loader2,
+  HeartPulse, Diamond, Flower, Milk, Trophy, UtensilsCrossed, HeartHandshake, Luggage, Martini,
 } from "lucide-react";
 import {
   AVOIDS, BUDGETS, EMPTY_STATE, GENDERS, LEVELS, MAX_SATURDAY, RELATIONSHIPS, SATURDAYS, SCREENS,
@@ -28,6 +29,9 @@ const OCCASION_ICONS: Record<string, Icon> = {
   birthday: Cake, holidays: Snowflake, "thank you": HandHeart, housewarming: Home, retirement: Sun,
   wedding: Gem, "new baby": Baby, sympathy: Leaf, "just because": Sparkles, anniversary: GlassWater,
   "valentine's day": Heart, graduation: GraduationCap, "mother's day": Flower2, "father's day": Crown,
+  "get well soon": HeartPulse, engagement: Diamond, "bridal shower": Flower, newborn: Milk,
+  congratulations: Trophy, "hostess gift": UtensilsCrossed, "galentine's day": HeartHandshake,
+  farewell: Luggage, "bachelor party": Martini,
 };
 const SATURDAY_ICONS: Record<string, Icon> = {
   outdoors: Trees, kitchen: Utensils, relaxing: Sofa, gadgets: Laptop, making: Palette, active: Dumbbell,
@@ -98,11 +102,15 @@ function Chips({ label, hint, options, value, onPick, prominent = false }: {
 interface QuizFlowV2Props {
   initialState?: V2State;
   depthAvailable: string[];
+  occasionsAvailable: string[];
 }
 
-export function QuizFlowV2({ initialState, depthAvailable }: QuizFlowV2Props) {
+export function QuizFlowV2({ initialState, depthAvailable, occasionsAvailable }: QuizFlowV2Props) {
   const router = useRouter();
-  const ctx: GraphContext = useMemo(() => ({ depthAvailable: new Set(depthAvailable) }), [depthAvailable]);
+  const ctx: GraphContext = useMemo(
+    () => ({ depthAvailable: new Set(depthAvailable), occasionsAvailable: new Set(occasionsAvailable) }),
+    [depthAvailable, occasionsAvailable],
+  );
   const [state, setState] = useState<V2State>(() => pruneState(initialState ?? EMPTY_STATE, ctx));
   const [stepId, setStepId] = useState<StepId>("who");
   const topRef = useRef<HTMLDivElement>(null);
@@ -230,7 +238,7 @@ export function QuizFlowV2({ initialState, depthAvailable }: QuizFlowV2Props) {
           )}
 
           {currentId === "occasion" && (
-            <Cards options={occasionOptions(state)} value={state.occasion} icons={OCCASION_ICONS}
+            <Cards options={occasionOptions(state, ctx)} value={state.occasion} icons={OCCASION_ICONS}
               onPick={(id) => update({ occasion: id as V2State["occasion"] })} />
           )}
 

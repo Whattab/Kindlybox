@@ -26,7 +26,9 @@
 // VALID OCCASIONS:
 //   birthday · anniversary · graduation · baby shower · wedding · valentine's day
 //   promotion/retirement · house warming · mother's day · father's day · holidays
-//   thank you · sympathy · just because
+//   thank you · sympathy · just because · get well soon · engagement · bridal shower
+//   new baby · congratulations · hostess gift · galentine's day · farewell
+//   bachelor/bachelorette party   ("holidays" is shown as "Christmas & holidays")
 //
 // INTERESTS: any interest label (e.g. fashion & accessories, jewelry, pets,
 //   home & kitchen, gaming, …). Omit `interests` to block by occasion only.

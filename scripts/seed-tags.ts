@@ -43,7 +43,9 @@ const INTERESTS: Record<string, string[]> = {
 const FLAT: Record<string, string[]> = {
   recipient: ["him", "her", "parent", "child", "sibling", "co-worker", "teacher/mentor", "friend"],
   life_stage: ["baby", "toddler", "kid", "tween", "teen", "20s", "30s-40s", "50s-60s", "70+"],
-  occasion: ["birthday", "anniversary", "graduation", "baby shower", "wedding", "valentine's day", "promotion/retirement", "house warming", "mother's day", "father's day", "holidays", "thank you", "sympathy", "just because"],
+  occasion: ["birthday", "anniversary", "graduation", "baby shower", "wedding", "valentine's day", "promotion/retirement", "house warming", "mother's day", "father's day", "holidays", "thank you", "sympathy", "just because",
+    // Added 2026-10-27 (owner request). "holidays" is shown as "Christmas & holidays".
+    "get well soon", "engagement", "bridal shower", "new baby", "congratulations", "hostess gift", "galentine's day", "farewell", "bachelor/bachelorette party"],
   style: ["practical", "sentimental", "luxe", "fun & quirky", "experience"],
   gift_type: ["physical", "consumable", "experience", "personalized", "digital"],
   experience_level: ["beginner", "enthusiast", "expert"],

@@ -11,6 +11,7 @@ import { RefineBar } from "./RefineBar";
 import { SwapButton } from "./SwapButton";
 import { normalizeSuggestion, SUGGESTION_SELECT } from "@/lib/quiz-email";
 import { rankLabel, interestChips, pronounFor } from "@/lib/quiz-labels";
+import { vocabLabel } from "@/lib/gift-vocab";
 import { DigitalGiftCallout } from "@/components/DigitalGiftCallout";
 import { suggestDigitalExtra } from "@/lib/digital-suggest";
 import { extrasEnabled } from "@/lib/extras";
@@ -79,7 +80,7 @@ export default async function ResultsPage({
 
   // Header copy: "FOR SARAH · BIRTHDAY" (or just "BIRTHDAY PICKS" with no name),
   // and a pronoun-aware headline ("picked for her") from the gender answer.
-  const occasion: string = session.answers?.occasion || "";
+  const occasion: string = vocabLabel(session.answers?.occasion || "");
   const eyebrow = recipientName
     ? `For ${recipientName} · ${occasion}`
     : `${occasion} picks`;

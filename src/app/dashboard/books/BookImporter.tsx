@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Loader2, BookPlus, Check, X, AlertTriangle } from "lucide-react";
-import { RECIPIENTS, OCCASIONS } from "@/lib/gift-vocab";
+import { RECIPIENTS, OCCASIONS, vocabLabel } from "@/lib/gift-vocab";
 import { addBooks, type AddBooksResult } from "./actions";
 
 const chip =
@@ -69,7 +69,7 @@ export function BookImporter() {
           <label className={label}>Occasions (optional)</label>
           <div className="flex flex-wrap gap-2">
             {OCCASIONS.map((o) => (
-              <button type="button" key={o} onClick={() => toggle(occasions, setOccasions, o)} className={`${chip} ${occasions.includes(o) ? on : off}`}>{o}</button>
+              <button type="button" key={o} onClick={() => toggle(occasions, setOccasions, o)} className={`${chip} ${occasions.includes(o) ? on : off}`}>{vocabLabel(o)}</button>
             ))}
           </div>
         </div>

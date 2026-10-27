@@ -12,7 +12,16 @@ export const TAGS = [
 export const OCCASIONS = [
   "birthday", "anniversary", "graduation", "baby shower", "wedding",
   "valentine's day", "promotion/retirement", "house warming", "mother's day", "father's day",
+  "holidays", "thank you", "sympathy", "just because",
+  "get well soon", "engagement", "bridal shower", "new baby", "congratulations", "hostess gift", "galentine's day", "farewell", "bachelor/bachelorette party",
 ] as const;
+
+// How a stored vocabulary value is SHOWN. The stored value never changes (so
+// existing tags keep working); only the label people read does.
+const DISPLAY: Record<string, string> = {
+  holidays: "Christmas & holidays",
+};
+export const vocabLabel = (value: string): string => DISPLAY[value] ?? value;
 
 export const RECIPIENTS = [
   "him", "her", "parent", "child", "sibling", "co-worker", "teacher/mentor", "friend",

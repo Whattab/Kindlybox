@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/utils/admin";
+import { vocabLabel } from "@/lib/gift-vocab";
 import { createServiceClient } from "@/utils/supabase/admin";
 import { ShoppingCart } from "lucide-react";
 import { loadGaps, loadImporterVocab, loadNeedsAttention } from "@/lib/amazon-assist";
@@ -80,7 +81,7 @@ export default async function AmazonGiftsPage({
           <p className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5">Thinnest occasions</p>
           <div className="flex flex-wrap gap-2">
             {gaps.occasions.slice(0, 6).map((o) => (
-              <a key={o.label} href={link({ occasion: o.label })} className={pill}>{o.label} <span className="text-gray-400">{o.count}</span></a>
+              <a key={o.label} href={link({ occasion: o.label })} className={pill}>{vocabLabel(o.label)} <span className="text-gray-400">{o.count}</span></a>
             ))}
           </div>
         </div>

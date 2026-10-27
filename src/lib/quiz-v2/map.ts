@@ -17,6 +17,8 @@ const ALL_STAGES: LifeStage[] = ["baby", "toddler", "kid", "tween", "teen", "20s
 const ALL_OCCASIONS: OccasionV2[] = [
   "birthday", "holidays", "thank you", "housewarming", "retirement", "wedding", "new baby", "sympathy",
   "just because", "anniversary", "valentine's day", "graduation", "mother's day", "father's day",
+  "get well soon", "engagement", "bridal shower", "newborn", "congratulations", "hostess gift",
+  "galentine's day", "farewell", "bachelor party",
 ];
 const ALL_FEELS = ["practical", "sentimental", "treat", "fun", "experience", "surprise"] as const;
 const ALL_DEPTH = Object.values(DEPTH).flatMap((o) => (o || []).map((x) => x.id));
@@ -72,8 +74,12 @@ export const SATURDAY_INTERESTS: Record<Saturday, string[]> = {
 const OCCASION_TO_CATALOGUE: Partial<Record<OccasionV2, string>> = {
   housewarming: "house warming",
   retirement: "promotion/retirement",
-  "new baby": "baby shower",
+  "new baby": "baby shower",   // the quiz's "Baby shower" button
+  newborn: "new baby",         // the quiz's "New baby" button (after the birth)
+  "bachelor party": "bachelor/bachelorette party",
 };
+/** The catalogue occasion value a quiz occasion searches for. */
+export const catalogueOccasion = (o: OccasionV2): string => OCCASION_TO_CATALOGUE[o] ?? o;
 
 // Life stages → recommender age groups. Children collapse to the existing kid
 // buckets; adult stages are their own (recommend.ts AGE_RANGES).
@@ -124,7 +130,7 @@ export function toQuizAnswers(state: V2State, ctx: GraphContext = {}): QuizAnswe
 
   return {
     recipient: recipientOf(s),
-    occasion: s.occasion ? OCCASION_TO_CATALOGUE[s.occasion] ?? s.occasion : "",
+    occasion: s.occasion ? catalogueOccasion(s.occasion) : "",
     interests: interestsOf(s),
     budget: s.budget || "no-limit",
     ageGroup: s.lifeStage ? STAGE_TO_AGE[s.lifeStage] : "",
@@ -160,6 +166,13 @@ const OCCASION_IN: Record<string, OccasionV2> = {
   retirement: "retirement", "promotion/retirement": "retirement",
   "valentine's day": "valentine's day", "mother's day": "mother's day", "father's day": "father's day",
   "thank you": "thank you", sympathy: "sympathy", "just because": "just because",
+  "get well soon": "get well soon", "get well": "get well soon",
+  engagement: "engagement", "bridal shower": "bridal shower",
+  congratulations: "congratulations", "new job": "congratulations",
+  "hostess gift": "hostess gift", hostess: "hostess gift",
+  "galentine's day": "galentine's day", galentines: "galentine's day",
+  farewell: "farewell", "going away": "farewell",
+  "bachelor party": "bachelor party", "bachelorette party": "bachelor party",
 };
 
 const AGE_IN: Record<string, LifeStage> = {
