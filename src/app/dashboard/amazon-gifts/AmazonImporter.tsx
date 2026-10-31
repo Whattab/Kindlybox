@@ -104,7 +104,14 @@ export function AmazonImporter({ vocab, preset }: { vocab: ImporterVocab; preset
 
   const field = "w-full rounded-xl border-gray-200 text-sm focus:border-accent focus:ring-accent";
   const label = "block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5";
-  const canSubmit = !!parsed.asin && name.trim() && imageUrl.trim() && tags.length > 0;
+  // Say what's missing — a gray button with no reason is confusing.
+  const missing = [
+    !parsed.asin && (resolving ? "the short link to finish opening" : "an ASIN (the first box should show a green “ASIN B0…” line)"),
+    !imageUrl.trim() && "an Image URL",
+    !name.trim() && "a Name",
+    tags.length === 0 && "at least one Interest chip",
+  ].filter(Boolean) as string[];
+  const canSubmit = missing.length === 0;
 
   const Chips = ({ title, hint, values, list, set, labelOf }: {
     title: string; hint?: string; values: string[]; list: string[]; set: (v: string[]) => void; labelOf?: (v: string) => string;
@@ -213,7 +220,10 @@ export function AmazonImporter({ vocab, preset }: { vocab: ImporterVocab; preset
           </div>
         )}
 
-        <div className="flex justify-end">
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          {!canSubmit && !pending && (
+            <p className="text-sm text-amber-700">Still needed: {missing.join(", ")}.</p>
+          )}
           <button type="button" onClick={submit} disabled={pending || !canSubmit}
             className="inline-flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors">
             {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <PackagePlus className="w-4 h-4" />}
