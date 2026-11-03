@@ -3,7 +3,7 @@ import { requireAdmin } from "@/utils/admin";
 import { createServiceClient } from "@/utils/supabase/admin";
 import { Store, Building2, Clock, ExternalLink, Tag, ChevronLeft, ChevronRight, Search, Check, X, ClipboardCheck } from "lucide-react";
 import { SyncButton } from "./SyncButton";
-import { setProductStatus, bulkSetStatus } from "./actions";
+import { setProductStatus, bulkApprove, bulkReject } from "./actions";
 
 export const dynamic = "force-dynamic";
 // "Sync Awin now" runs the full sync as a server action on this page; without
@@ -183,8 +183,8 @@ export default async function ProductsPage({
             <input type="hidden" name="f_pmin" value={pmin} />
             <input type="hidden" name="f_pmax" value={pmax} />
             <span className="text-xs text-gray-400">Bulk ({total}):</span>
-            <button formAction={bulkSetStatus} name="status" value="approved" className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-emerald-700"><Check className="w-3.5 h-3.5" /> Approve all</button>
-            <button formAction={bulkSetStatus} name="status" value="rejected" className="inline-flex items-center gap-1 rounded-lg bg-red-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-red-700"><X className="w-3.5 h-3.5" /> Reject all</button>
+            <button formAction={bulkApprove} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-emerald-700"><Check className="w-3.5 h-3.5" /> Approve all</button>
+            <button formAction={bulkReject} className="inline-flex items-center gap-1 rounded-lg bg-red-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-red-700"><X className="w-3.5 h-3.5" /> Reject all</button>
           </form>
         )}
       </div>

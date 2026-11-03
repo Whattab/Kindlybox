@@ -41,10 +41,14 @@ export async function setProductStatus(formData: FormData) {
 // Approve/reject EVERY product matching the current review filters (not just the
 // visible page) — so a new merchant's hundreds can be cleared in one click. The
 // filters are carried as hidden fields on the form.
-export async function bulkSetStatus(formData: FormData) {
+// Each button gets its own action with the status fixed: the clicked button's
+// name/value isn't reliably in the FormData, and without it the bulk action
+// silently did nothing.
+export async function bulkApprove(formData: FormData) { await bulkSetStatus(formData, "approved"); }
+export async function bulkReject(formData: FormData) { await bulkSetStatus(formData, "rejected"); }
+
+async function bulkSetStatus(formData: FormData, status: "approved" | "rejected") {
   await assertAdmin();
-  const status = String(formData.get("status") || "");
-  if (!VALID.includes(status)) return;
   const admin = createServiceClient();
 
   let q = admin.from("products").update({ status }).eq("active", true);
@@ -62,6 +66,7 @@ export async function bulkSetStatus(formData: FormData) {
   if (pmin) q = q.gte("price", Number(pmin));
   if (pmax) q = q.lte("price", Number(pmax));
 
-  await q;
+  const { error } = await q;
+  if (error) console.error("[products] bulk status update failed:", error.message);
   revalidatePath("/dashboard/products");
 }
