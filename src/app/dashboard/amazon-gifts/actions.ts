@@ -4,6 +4,7 @@ import { assertAdmin } from "@/utils/admin";
 import { createServiceClient } from "@/utils/supabase/admin";
 import { parseAsin, amazonProductUrl } from "@/lib/affiliate/tracking";
 import { canonicalGender } from "@/lib/gift-vocab";
+import { isSpecificOccasion } from "@/lib/recommend";
 import { avoidFlagsFromName, loadImporterVocab, mergeBackfill, onlyAllowed, suggestListing, withParents, type ListingSuggestion } from "@/lib/amazon-assist";
 import { tagItem } from "@/lib/ai-tags";
 import { resolveAmazonShortLink } from "@/lib/affiliate/amazon-shortlink";
@@ -56,7 +57,11 @@ export async function addAmazonGift(input: AddAmazonGiftInput): Promise<AddAmazo
 
   // Sub-hobbies also save their broad interest, so both quiz paths find it.
   const tags = withParents(onlyAllowed(input.tags, allInterests), vocab.parentOf);
-  if (tags.length === 0) return { error: "Pick at least one interest." };
+  const occasions = onlyAllowed(input.occasions, vocab.occasions);
+  // Event occasions (new baby, wedding…) define the gift on their own; anything else needs an interest.
+  if (tags.length === 0 && !occasions.some(isSpecificOccasion)) {
+    return { error: "Pick at least one interest (or an event occasion like New baby)." };
+  }
 
   const pMin = Number.isFinite(input.priceMin) && input.priceMin > 0 ? input.priceMin : 20;
   const pMax = Number.isFinite(input.priceMax) && input.priceMax >= pMin ? input.priceMax : Math.max(pMin, 50);
@@ -70,12 +75,12 @@ export async function addAmazonGift(input: AddAmazonGiftInput): Promise<AddAmazo
     price_min: pMin,
     price_max: pMax,
     tags,
-    occasions: onlyAllowed(input.occasions, vocab.occasions),
+    occasions,
     recipients: onlyAllowed(input.recipients, vocab.recipients),
     style: onlyAllowed(input.style, vocab.styles),
     gift_type: onlyAllowed(input.giftType, vocab.giftTypes),
     avoid_flags: onlyAllowed(input.avoidFlags, vocab.avoidFlags),
-    primary_interest: tags.find((t) => vocab.parentOf[t]) || tags[0],
+    primary_interest: tags.find((t) => vocab.parentOf[t]) || tags[0] || null,
     gender: canonicalGender(input.gender || "unisex").value || "unisex",
     affiliate_url: link,
     destination_url: link,

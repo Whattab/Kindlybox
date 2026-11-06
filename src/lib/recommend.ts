@@ -191,6 +191,10 @@ const SPECIFIC_OCCASIONS = new Set([
   // Added 2026-10-27: the occasion defines the gift, so occasion-tagged items lead.
   "new baby", "get well soon", "engagement", "bridal shower", "hostess gift", "farewell", "bachelor/bachelorette party",
 ]);
+/** Event occasions where the occasion itself defines the gift (a gift can be added without an interest). */
+export function isSpecificOccasion(occasion: string): boolean {
+  return SPECIFIC_OCCASIONS.has((occasion || "").toLowerCase().trim());
+}
 export function occasionWeight(occasion: string): number {
   return SPECIFIC_OCCASIONS.has((occasion || "").toLowerCase().trim()) ? W.occasionSpecific : W.occasion;
 }
@@ -477,11 +481,11 @@ export function getRecommendations(
   });
 
   // Age filter: drop clear age mismatches. Most (neutral) products pass through.
-  // Exception: a baby-shower gift is FOR a baby, so the quiz's (adult) age group
-  // must not strip baby/kid items here — the specific-occasion gate keeps results
-  // on-theme instead.
+  // Exception: a baby-shower / new-baby gift is FOR a baby, so the quiz's (adult)
+  // age group must not strip baby/kid items here — the specific-occasion gate
+  // keeps results on-theme instead.
   const wantAge = (answers.ageGroup || "").toLowerCase();
-  const babyContext = (answers.occasion || "").toLowerCase() === "baby shower";
+  const babyContext = ["baby shower", "new baby"].includes((answers.occasion || "").toLowerCase().trim());
   const ageFiltered = (!wantAge || babyContext) ? occasionSafe : occasionSafe.filter(gift => {
     const hay = [gift.name, gift.description, ...(gift.tags || [])].filter(Boolean).join(" ").toLowerCase();
     // Explicit milestone age must match the recipient's decade.

@@ -7,6 +7,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { Loader2, PackagePlus, Check, AlertTriangle, Sparkles } from "lucide-react";
 import { vocabLabel } from "@/lib/gift-vocab";
+import { isSpecificOccasion } from "@/lib/recommend";
 import { amazonShortLink, nameFromAmazonUrl, parseAmazonPaste } from "@/lib/affiliate/amazon-paste";
 import type { ImporterVocab } from "@/lib/amazon-assist";
 import { addAmazonGift, resolveAmazonLink, suggestAmazonTags } from "./actions";
@@ -109,7 +110,7 @@ export function AmazonImporter({ vocab, preset }: { vocab: ImporterVocab; preset
     !parsed.asin && (resolving ? "the short link to finish opening" : "an ASIN (the first box should show a green “ASIN B0…” line)"),
     !imageUrl.trim() && "an Image URL",
     !name.trim() && "a Name",
-    tags.length === 0 && "at least one Interest chip",
+    tags.length === 0 && !occasions.some(isSpecificOccasion) && "at least one Interest chip (or an event occasion like New baby)",
   ].filter(Boolean) as string[];
   const canSubmit = missing.length === 0;
 
@@ -175,7 +176,7 @@ export function AmazonImporter({ vocab, preset }: { vocab: ImporterVocab; preset
         {note && <p className="text-sm text-emerald-700">{note}</p>}
 
         <div>
-          <label className={label}>Interests — pick at least one <span className="normal-case font-normal text-gray-400">(sub-hobbies power the quiz&apos;s &ldquo;Tell us a little more&rdquo;)</span></label>
+          <label className={label}>Interests — pick at least one (optional for event occasions like New baby, Baby shower, Wedding) <span className="normal-case font-normal text-gray-400">(sub-hobbies power the quiz&apos;s &ldquo;Tell us a little more&rdquo;)</span></label>
           <div className="space-y-2.5">
             {vocab.interests.map((group) => (
               <div key={group.label} className="flex flex-wrap items-center gap-1.5">

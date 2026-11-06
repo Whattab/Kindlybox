@@ -18,6 +18,12 @@ describe("occasion weighting", () => {
     const recs = getRecommendations({ ...base, occasion: "baby shower", interests: ["fashion & accessories"] }, [baby, hoodie], { seed: 1, limit: 2 });
     expect(recs[0].gift.name).toBe("Baby Bouquet");
   });
+  it("new baby keeps baby items for an adult shopper (age filter skipped)", () => {
+    const onesie = g({ name: "Newborn Baby Onesie Set", occasions: ["new baby"] });
+    const mug = g({ name: "Coffee Mug", tags: ["home & kitchen"] });
+    const recs = getRecommendations({ ...base, occasion: "new baby", ageGroup: "30s" }, [onesie, mug], { seed: 1, limit: 2 });
+    expect(recs[0].gift.name).toBe("Newborn Baby Onesie Set");
+  });
   it("generic occasion (birthday) still lets interest lead", () => {
     const bdayOnly = g({ name: "Generic Birthday Thing", occasions: ["birthday"] });
     const hoodie = g({ name: "Hoodie", tags: ["fashion & accessories"], occasions: [] });
