@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { CheckCircle2, Loader2, Clock, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { createServiceClient } from "@/utils/supabase/admin";
-import { SERVICES, isServiceType, DELIVERY_OPTIONS, CARD_DELIVERY_OPTIONS } from "@/lib/extras";
+import { SERVICES, isServiceType, DELIVERY_OPTIONS, CARD_DELIVERY_OPTIONS, PRICES_CENTS } from "@/lib/extras";
 import { PendingRefresh } from "./PendingRefresh";
+import { TrackPurchase } from "@/components/SiteAnalytics";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,10 @@ export default async function OrderSuccessPage({
   // The webhook flips the order to paid and can land a moment after Stripe
   // sends the buyer back here. Until then, show a settling state.
   const awaitingWebhook = status === "pending_payment";
+  // GA4 purchase, once the payment is confirmed.
+  const purchaseTag = orderId && serviceType && isServiceType(serviceType) && status && !["pending_payment", "expired", "cancelled"].includes(status)
+    ? <TrackPurchase orderId={orderId} value={PRICES_CENTS[serviceType] / 100} item={SERVICES[serviceType].name} />
+    : null;
 
   // ── Bundle: combined "Step 10 of 10" confirmation ──
   if (serviceType === "bundle") {
@@ -64,7 +69,7 @@ export default async function OrderSuccessPage({
           </div>
 
           <h1 className="text-4xl font-serif font-bold mb-6">{awaitingWebhook ? "Almost there…" : "Your gift bundle is on its way"}</h1>
-          {awaitingWebhook && <PendingRefresh />}
+          {awaitingWebhook ? <PendingRefresh /> : purchaseTag}
 
           <div className="rounded-3xl bg-[#F3ECDD] text-[#2a1f18] p-7 text-center">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#D9A93E] mb-5">
@@ -152,7 +157,7 @@ export default async function OrderSuccessPage({
 
           <h1 className="text-4xl font-serif font-bold mb-6">{awaitingWebhook ? "Almost there…" : headline}</h1>
 
-          {awaitingWebhook && <PendingRefresh />}
+          {awaitingWebhook ? <PendingRefresh /> : purchaseTag}
 
           <div className="rounded-3xl bg-[#F3ECDD] text-[#2a1f18] p-7 text-center">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#D9A93E] mb-5">
@@ -237,6 +242,7 @@ export default async function OrderSuccessPage({
           </>
         ) : (
           <>
+            {purchaseTag}
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-50 mb-6">
               <CheckCircle2 className="w-9 h-9 text-emerald-600" />
             </div>

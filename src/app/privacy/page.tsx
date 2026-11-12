@@ -53,7 +53,7 @@ export default function PrivacyPage() {
               <p className="mb-3">We and our partners use cookies and similar technologies to:</p>
               <ul className="list-disc pl-5 space-y-1.5">
                 <li>Keep you signed in and remember your preferences (essential).</li>
-                <li>Measure traffic and usage through privacy-friendly analytics (Vercel Web Analytics).</li>
+                <li>Measure traffic and usage through analytics (Vercel Web Analytics and Google Analytics). Google Analytics sets cookies to tell visits apart; you can opt out with Google&rsquo;s <a href="https://tools.google.com/dlpage/gaoptout" className="text-accent underline" target="_blank" rel="noopener noreferrer">browser add-on</a>.</li>
                 <li>
                   Track referrals to merchants. When you click an affiliate link, our affiliate networks
                   (such as Awin and CJ) may set cookies so a resulting purchase is attributed to us. Those
@@ -85,6 +85,7 @@ export default function PrivacyPage() {
                 <li><strong className="text-gray-700">Stripe</strong> — payment processing. Card details are handled by Stripe; we do not store full card numbers.</li>
                 <li><strong className="text-gray-700">Resend</strong> — sending our emails.</li>
                 <li><strong className="text-gray-700">Vercel</strong> — hosting and privacy-friendly analytics.</li>
+                <li><strong className="text-gray-700">Google Analytics</strong> — website usage statistics (pages visited, device, approximate location).</li>
                 <li><strong className="text-gray-700">Affiliate networks</strong> (e.g., Awin, CJ) — referral tracking when you click affiliate links.</li>
               </ul>
               <p className="mt-3">We may also share information to comply with law or protect our rights.</p>
