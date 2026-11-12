@@ -1,7 +1,8 @@
 "use client";
 
-// Google Analytics 4. Page views come from GA's enhanced measurement (it follows
-// client-side navigation); this adds the moments that matter for promotion:
+// Google Analytics 4 + Meta Pixel. Page views come from GA's enhanced
+// measurement and the pixel's own history tracking (both follow client-side
+// navigation); this adds the moments that matter for promotion:
 //   quiz_complete — a results page was opened (once per session id)
 //   gift_click    — a gift link (/go/...) was clicked through to a shop
 // Purchases are sent from the order success page (TrackPurchase).
@@ -9,8 +10,8 @@
 
 import Script from "next/script";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
-import { GA_ID, isTrackedPath, track } from "@/lib/analytics";
+import { useEffect, useState } from "react";
+import { GA_ID, META_PIXEL_ID, adsOptedOut, isTrackedPath, track } from "@/lib/analytics";
 
 export function SiteAnalytics() {
   const pathname = usePathname();
@@ -20,6 +21,15 @@ export function SiteAnalytics() {
   if (typeof window !== "undefined") {
     (window as unknown as Record<string, boolean>)[`ga-disable-${GA_ID}`] = !tracked;
   }
+
+  // Meta Pixel loads only for visitors who haven't opted out of ad tracking.
+  const [metaOn, setMetaOn] = useState(false);
+  useEffect(() => { setMetaOn(!adsOptedOut()); }, []);
+  // Admin pages: Meta has no opt-out flag like GA, so revoke consent there.
+  useEffect(() => {
+    const fbq = (window as unknown as { fbq?: (...a: unknown[]) => void }).fbq;
+    if (fbq && metaOn) fbq("consent", tracked ? "grant" : "revoke");
+  }, [tracked, metaOn]);
 
   useEffect(() => {
     const m = pathname?.match(/^\/results\/([^/]+)/);
@@ -52,6 +62,17 @@ function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
 gtag('config', '${GA_ID}');`}
       </Script>
+      {metaOn && (
+        <Script id="meta-pixel" strategy="afterInteractive">
+          {`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+document,'script','https://connect.facebook.net/en_US/fbevents.js');
+${tracked ? "" : "fbq('consent', 'revoke');\n"}fbq('init', '${META_PIXEL_ID}');
+fbq('track', 'PageView');`}
+        </Script>
+      )}
     </>
   );
 }
@@ -59,10 +80,11 @@ gtag('config', '${GA_ID}');`}
 /** GA4 purchase for a paid extras order. GA de-duplicates on transaction_id, so a refresh doesn't double count. */
 export function TrackPurchase({ orderId, value, item }: { orderId: string; value: number; item: string }) {
   useEffect(() => {
-    // gtag may still be loading; retry briefly.
+    // The scripts may still be loading; wait briefly for both (Meta only if allowed).
     let tries = 0;
     const send = () => {
-      if ((window as unknown as { gtag?: unknown }).gtag) {
+      const w = window as unknown as { gtag?: unknown; fbq?: unknown };
+      if ((w.gtag && (w.fbq || adsOptedOut())) || tries >= 20) {
         track("purchase", { transaction_id: orderId, value, currency: "USD", items: [{ item_id: item, item_name: item, price: value, quantity: 1 }] });
       } else if (tries++ < 20) setTimeout(send, 500);
     };
