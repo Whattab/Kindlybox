@@ -36,7 +36,7 @@ export function CookieNotice() {
     <div className="fixed inset-x-0 bottom-0 z-50 p-3 sm:p-4">
       <div className="mx-auto flex max-w-3xl flex-col items-start gap-3 rounded-2xl border border-gray-200 bg-white/95 p-4 shadow-xl backdrop-blur sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm leading-relaxed text-gray-600">
-          We use cookies for essential features, analytics (including Google Analytics), advertising (Meta Pixel), and
+          We use cookies for essential features, analytics (including Google Analytics), advertising (Meta Pixel, Pinterest Tag), and
           affiliate referral tracking. See our{" "}
           <Link href="/privacy" className="font-semibold text-accent hover:underline">Privacy Policy</Link>.
         </p>

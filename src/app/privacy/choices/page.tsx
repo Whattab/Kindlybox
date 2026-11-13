@@ -15,8 +15,8 @@ export default function PrivacyChoicesPage() {
       <div className="flex-1 max-w-2xl w-full mx-auto px-4 py-12 space-y-6 text-gray-700">
         <h1 className="font-serif text-3xl md:text-4xl font-bold text-primary">Do Not Sell or Share My Personal Information</h1>
         <p>
-          KindlyBox doesn&apos;t sell your name, email, or order details. We do use an advertising pixel
-          from Meta (Facebook &amp; Instagram), which records that you visited our site so
+          KindlyBox doesn&apos;t sell your name, email, or order details. We do use advertising pixels
+          from Meta (Facebook &amp; Instagram) and Pinterest, which record that you visited our site so
           we can show you KindlyBox ads elsewhere. Under some US state laws (including California&apos;s),
           this counts as &ldquo;sharing&rdquo; personal information for advertising, and you can opt out.
         </p>

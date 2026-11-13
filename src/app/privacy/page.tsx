@@ -55,7 +55,7 @@ export default function PrivacyPage() {
                 <li>Keep you signed in and remember your preferences (essential).</li>
                 <li>Measure traffic and usage through analytics (Vercel Web Analytics and Google Analytics). Google Analytics sets cookies to tell visits apart; you can opt out with Google&rsquo;s <a href="https://tools.google.com/dlpage/gaoptout" className="text-accent underline" target="_blank" rel="noopener noreferrer">browser add-on</a>.</li>
                 <li>
-                  Show KindlyBox ads to past visitors (advertising pixels from Meta). This may count as
+                  Show KindlyBox ads to past visitors (advertising pixels from Meta and Pinterest). This may count as
                   &ldquo;sharing&rdquo; personal information under some US state laws &mdash; you can opt out on our{" "}
                   <Link href="/privacy/choices" className="text-accent underline">Do Not Sell or Share</Link> page,
                   and we honor the Global Privacy Control signal.
@@ -92,6 +92,7 @@ export default function PrivacyPage() {
                 <li><strong className="text-gray-700">Resend</strong> — sending our emails.</li>
                 <li><strong className="text-gray-700">Vercel</strong> — hosting and privacy-friendly analytics.</li>
                 <li><strong className="text-gray-700">Meta</strong> — advertising measurement and showing our ads to past visitors (Meta Pixel).</li>
+                <li><strong className="text-gray-700">Pinterest</strong> — advertising measurement and showing our ads to past visitors (Pinterest Tag).</li>
                 <li><strong className="text-gray-700">Google Analytics</strong> — website usage statistics (pages visited, device, approximate location).</li>
                 <li><strong className="text-gray-700">Affiliate networks</strong> (e.g., Awin, CJ) — referral tracking when you click affiliate links.</li>
               </ul>
